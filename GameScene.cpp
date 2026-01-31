@@ -1,7 +1,7 @@
 #include "GameScene.h"
 using namespace KamataEngine;
 
-void GameScene::Init() {
+void GameScene::Initialize() { 
 
 }
 
@@ -9,6 +9,7 @@ void GameScene::Update() {
 
 }
 
-void GameScene::Draw() {
+void GameScene::Draw() { 
 
 }
+

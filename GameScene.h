@@ -6,11 +6,12 @@ class GameScene
 {
 public:
 	// 初期化
-	void Init();
+	void Initialize();
 
 	// 更新
 	void Update();
 	
 	// 描画
 	void Draw();
+	
 };
