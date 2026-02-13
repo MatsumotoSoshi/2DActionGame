@@ -1,22 +1,25 @@
 #pragma once
 #include "KamataEngine.h"
-class Player 
-{
+
+class Player {
 public:
-
 	/// <summary>
-	///  初期化
+	/// 
 	/// </summary>
-	void Initialize();
+	void Initialize(uint32_t textureHandle);
 
 	/// <summary>
-	/// 更新
+	/// 
 	/// </summary>
 	void Update();
 
-	/// 描画
+	/// <summary>
+	/// 
 	/// </summary>
-	void Draw();
+	void Draw(const KamataEngine::Camera& camera);
 
 private:
+	KamataEngine::Model* model_ = nullptr;
+	KamataEngine::WorldTransform worldTransform_;
+	uint32_t textureHandle_ = 0;
 };

@@ -2,20 +2,35 @@
 #include "KamataEngine.h"
 #include "Player.h"
 
-// ゲームシーン
-class GameScene 
-{
+class GameScene {
 public:
-	~GameScene();
 
-	// 初期化
+	/// <summary>
+	/// 
+	/// </summary>
 	void Initialize();
 
-	// 更新
+	/// <summary>
+	/// 
+	/// </summary>
 	void Update();
-	
-	// 描画
+
+	/// <summary>
+	/// 
+	/// </summary>
 	void Draw();
 
+	/// <summary>
+	/// 
+	/// </summary>
+	~GameScene();
+
 private:
+	uint32_t textureHandle_ = 0;
+
+	// カメラ
+	KamataEngine::Camera camera_;
+	KamataEngine::DebugCamera* debugCamera_ = nullptr;
+
+	Player* player_ = nullptr;
 };
