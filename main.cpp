@@ -3,12 +3,13 @@
 #include "GameScene.h"
 using namespace KamataEngine;
 
-DirectXCommon* dxCommon = DirectXCommon::GetInstance();
 
 // Windowsアプリでのエントリーポイント(main関数)
 int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	// エンジンの初期化
 	Initialize(L"LC1B_28_マツモト_ソウシ_AL2");
+
+	DirectXCommon* dxCommon = DirectXCommon::GetInstance();
 
 	// ゲームシーンのインスタンス生成
 	GameScene* gameScene = new GameScene();
