@@ -1,6 +1,6 @@
 #pragma once
 #include "KamataEngine.h"
-#include "Player.h"
+#include <vector>
 
 class GameScene {
 public:
@@ -26,11 +26,11 @@ public:
 	~GameScene();
 
 private:
-	uint32_t textureHandle_ = 0;
+	KamataEngine::Model* modelBlock_ = nullptr;
+	 KamataEngine::Camera camera_;
 
-	// カメラ
-	KamataEngine::Camera camera_;
+	std::vector<std::vector<KamataEngine::WorldTransform*>> worldTransformBlocks_;
+
+	bool isDebugCameraActive_ = false;
 	KamataEngine::DebugCamera* debugCamera_ = nullptr;
-
-	Player* player_ = nullptr;
 };
