@@ -1,12 +1,13 @@
 #pragma once
 #include "KamataEngine.h"
+#include "WorldMatrix.h"
 
 class Player {
 public:
 	/// <summary>
 	/// 
 	/// </summary>
-	void Initialize(uint32_t textureHandle);
+	void Initialize();
 
 	/// <summary>
 	/// 
@@ -21,5 +22,5 @@ public:
 private:
 	KamataEngine::Model* model_ = nullptr;
 	KamataEngine::WorldTransform worldTransform_;
-	uint32_t textureHandle_ = 0;
+	WorldMatrix worldMatrix_;
 };

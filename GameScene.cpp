@@ -2,23 +2,29 @@
 using namespace KamataEngine;
 
 void GameScene::Initialize() { 
+	 camera_.farZ = 5000.0f;
+
 	// カメラ初期化
 	camera_.Initialize();
 	PrimitiveDrawer::GetInstance()->SetCamera(&camera_);
 
+	// 3Dモデル生成
+	modelBlock_ = Model::CreateFromOBJ("block");
+	modelSkydome_ = Model::CreateFromOBJ("SkyDome");
+
+	skydome_.Initialize(modelSkydome_, &camera_);
+	player_.Initialize();
+
 	// デバッグカメラ生成
 	debugCamera_ = new DebugCamera(1280, 720);
-
-	// モデル生成
-	modelBlock_ = Model::Create();
 
 	// 要素数
 	const uint32_t kNumBlockVirtical = 10;
 	const uint32_t kNumBlockHorizontal = 20;
 
 	// ブロックサイズ
-	const float kBlockWidth = 2.0f;
-	const float kBlockHeight = 2.0f;
+	const float kBlockWidth = 1.0f;
+	const float kBlockHeight = 1.0f;
 
 	 worldTransformBlocks_.resize(kNumBlockVirtical);
 	for (uint32_t i = 0; i < kNumBlockVirtical; ++i) {
@@ -39,6 +45,7 @@ void GameScene::Initialize() {
 			worldTransformBlocks_[i][j]->translation_.y = kBlockHeight * i;
 		}
 	}
+
 }
 
 void GameScene::Update() { 
@@ -47,10 +54,12 @@ void GameScene::Update() {
 		for (WorldTransform* worldTransformBlock : worldTransformBlockLine) {
 			 if (!worldTransformBlock)
 				 continue;
-			 worldTransformBlock->matWorld_ = KamataEngine::MathUtility::MakeTranslateMatrix(worldTransformBlock->translation_);
-			 worldTransformBlock->TransferMatrix();
+			 worldMatrix_.Update(*worldTransformBlock);
 		}
 	 }
+
+	 skydome_.Update();
+	 player_.Update();
 
 	 #ifdef _DEBUG
 	 // デバッグカメラの切り替え
@@ -87,6 +96,9 @@ void GameScene::Draw() {
 		}
 	}
 
+	player_.Draw(camera_);
+	skydome_.Draw();
+
 	// 3D描画後処理
 	Model::PostDraw();
 }
@@ -94,6 +106,7 @@ void GameScene::Draw() {
 GameScene::~GameScene() { 
 	delete modelBlock_;
 	delete debugCamera_;
+	delete modelSkydome_;
 
 	for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTransformBlocks_) {
 		for (WorldTransform* worldTransformBlock : worldTransformBlockLine) {
