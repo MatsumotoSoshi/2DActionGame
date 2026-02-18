@@ -4,6 +4,7 @@
 #include "Skydome.h"
 #include "Player.h"
 #include "WorldMatrix.h"
+#include "MapChipField.h"
 
 class GameScene {
 public:
@@ -28,6 +29,8 @@ public:
 	/// </summary>
 	~GameScene();
 
+	void GeneralBlocks();
+
 private:
 	KamataEngine::Model* modelBlock_ = nullptr;
 	 KamataEngine::Camera camera_;
@@ -40,6 +43,8 @@ private:
 	Skydome skydome_;
 	Player player_;
 	WorldMatrix worldMatrix_;
+	MapChipField* mapChipField_;
+
 
 	KamataEngine::Model* modelSkydome_ = nullptr;
 };
