@@ -35,15 +35,23 @@ void GameScene::Initialize() {
 	// 3Dモデル生成
 	modelBlock_ = Model::CreateFromOBJ("block");
 	modelSkydome_ = Model::CreateFromOBJ("SkyDome");
-
-	skydome_.Initialize(modelSkydome_, &camera_);
-	player_.Initialize();
+	modelPlayer_ = Model::CreateFromOBJ("Player");
 
 	// デバッグカメラ生成
 	debugCamera_ = new DebugCamera(1280, 720);
 
 	mapChipField_ = new MapChipField;
 	mapChipField_->LoadMapChipCsv("Resources/blocks.csv");
+	
+
+	// 座標をマップチップ番号で指定
+	Vector3 playerPosition = mapChipField_->GetMapChipPositionByIndex(0, 0);
+
+	playerPosition.y = 1.0f;
+
+	skydome_.Initialize(modelSkydome_, &camera_);
+	player_.Initialize(modelPlayer_, &camera_, playerPosition);
+
 	GeneralBlocks();
 }
 

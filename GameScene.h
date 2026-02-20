@@ -33,7 +33,7 @@ public:
 
 private:
 	KamataEngine::Model* modelBlock_ = nullptr;
-	 KamataEngine::Camera camera_;
+	KamataEngine::Camera camera_;
 
 	std::vector<std::vector<KamataEngine::WorldTransform*>> worldTransformBlocks_;
 
@@ -47,4 +47,5 @@ private:
 
 
 	KamataEngine::Model* modelSkydome_ = nullptr;
+	KamataEngine::Model* modelPlayer_ = nullptr;
 };
