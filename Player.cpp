@@ -58,6 +58,15 @@ void Player::Update() {
 
 			velocity_.x = std::clamp(velocity_.x, -kLimitRunSpeed, kLimitRunSpeed);
 
+		} else {
+
+			// 減速処理
+			velocity_.x *= (1.0f - kAttenuation);
+
+			// 微小値なら完全停止
+			if (std::abs(velocity_.x) < 0.01f) {
+				velocity_.x = 0.0f;
+			}
 		}
 
 		if (Input::GetInstance()->TriggerKey(DIK_UP)) {

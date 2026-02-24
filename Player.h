@@ -20,9 +20,9 @@ public:
 	void Draw(const KamataEngine::Camera& camera);
 
 	KamataEngine::Vector3 velocity_ = {};
-	static inline const float kAcceleration = 0.1f;
+	static inline const float kAcceleration = 0.05f;
 	static inline const float kAttenuation = 0.1f;
-	static inline const float kLimitRunSpeed = 1.0f;
+	static inline const float kLimitRunSpeed = 0.8f;
 
 	enum class LRDirection { 
 		kRight,
@@ -47,9 +47,13 @@ public:
 	// 最大落下速度
 	static inline const float kLimitFallSpeed_ = 2.0f;
 	// ジャンプ初速
-	static inline const float kJumpAcceleration_ = 0.8f;
+	static inline const float kJumpAcceleration_ = 0.65f;
 
 	bool landing_ = false;
+
+	const KamataEngine::WorldTransform& GetWorldTransform() const { return worldTransform_; }
+
+	const KamataEngine::Vector3& GetVelocity() const { return velocity_; }
 
 private:
 	KamataEngine::Model* model_ = nullptr;

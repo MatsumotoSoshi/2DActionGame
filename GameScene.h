@@ -5,6 +5,7 @@
 #include "Player.h"
 #include "WorldMatrix.h"
 #include "MapChipField.h"
+#include "CameraController.h"
 
 class GameScene {
 public:
@@ -44,6 +45,7 @@ private:
 	Player player_;
 	WorldMatrix worldMatrix_;
 	MapChipField* mapChipField_;
+	CameraController cameraController_;
 
 
 	KamataEngine::Model* modelSkydome_ = nullptr;

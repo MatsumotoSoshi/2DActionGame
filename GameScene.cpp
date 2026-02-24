@@ -30,29 +30,48 @@ void GameScene::Initialize() {
 
 	// カメラ初期化
 	camera_.Initialize();
-	PrimitiveDrawer::GetInstance()->SetCamera(&camera_);
 
-	// 3Dモデル生成
-	modelBlock_ = Model::CreateFromOBJ("block");
-	modelSkydome_ = Model::CreateFromOBJ("SkyDome");
-	modelPlayer_ = Model::CreateFromOBJ("Player");
+	 // 3Dモデル生成
+    modelBlock_ = Model::CreateFromOBJ("block");
+    modelSkydome_ = Model::CreateFromOBJ("SkyDome");
+    modelPlayer_ = Model::CreateFromOBJ("Player");
 
-	// デバッグカメラ生成
-	debugCamera_ = new DebugCamera(1280, 720);
+    // デバッグカメラ生成
+    debugCamera_ = new DebugCamera(1280, 720);
 
-	mapChipField_ = new MapChipField;
-	mapChipField_->LoadMapChipCsv("Resources/blocks.csv");
-	
+    mapChipField_ = new MapChipField;
+    mapChipField_->LoadMapChipCsv("Resources/blocks.csv");
 
-	// 座標をマップチップ番号で指定
-	Vector3 playerPosition = mapChipField_->GetMapChipPositionByIndex(0, 0);
+    // プレイヤー初期位置
+    Vector3 playerPosition = mapChipField_->GetMapChipPositionByIndex(0, 0);
+    playerPosition.x = 1.0f;
+    playerPosition.y = 1.0f;
 
-	playerPosition.y = 1.0f;
+    player_.Initialize(modelPlayer_, nullptr, playerPosition);
 
-	skydome_.Initialize(modelSkydome_, &camera_);
-	player_.Initialize(modelPlayer_, &camera_, playerPosition);
+    // カメラコントローラ初期化
+    cameraController_.Initialize();
+    cameraController_.SetTarget(&player_);
+    cameraController_.Reset();
 
-	GeneralBlocks();
+	// 移動範囲の指定
+	CameraController::Rect area;
+
+	area.left = 0.0f;
+	area.right = 2000.0f; 
+	area.bottom = 0.0f;
+	area.top = 1000.0f;
+
+	cameraController_.SetMovableArea(area);
+
+    // PrimitiveDrawerにカメラを渡す
+    PrimitiveDrawer::GetInstance()->SetCamera(
+        &cameraController_.GetCamera());
+
+    skydome_.Initialize(modelSkydome_,
+        &cameraController_.GetCamera());
+
+    GeneralBlocks();
 }
 
 void GameScene::Update() { 
@@ -67,6 +86,7 @@ void GameScene::Update() {
 
 	 skydome_.Update();
 	 player_.Update();
+	 cameraController_.Update();
 
 	 #ifdef _DEBUG
 	 // デバッグカメラの切り替え
@@ -79,14 +99,14 @@ void GameScene::Update() {
 		 // デバッグカメラ更新
 		 debugCamera_->Update();
 		 // デバッグカメラのビュー行列
-		 camera_.matView = debugCamera_->GetCamera().matView; 
+		 cameraController_.GetCamera().matView = debugCamera_->GetCamera().matView; 
 		 // デバッグカメラのプロジェクション行列
-		 camera_.matProjection = debugCamera_->GetCamera().matProjection;
+		 cameraController_.GetCamera().matProjection = debugCamera_->GetCamera().matProjection;
 		 // ビュープロジェクション行列の転送
-		 camera_.TransferMatrix();
+		 cameraController_.GetCamera().TransferMatrix();
 	 } else {
 		 // ビュープロジェクション行列の更新と転送
-		 camera_.UpdateMatrix();
+		 cameraController_.GetCamera().UpdateMatrix();
 	 }
 	
 }
@@ -99,11 +119,11 @@ void GameScene::Draw() {
 		for (WorldTransform* worldTransformBlock : worldTransformBlockLine) {
 			if (!worldTransformBlock)
 				continue;
-			modelBlock_->Draw(*worldTransformBlock, camera_);
+			modelBlock_->Draw(*worldTransformBlock, cameraController_.GetCamera());
 		}
 	}
 
-	player_.Draw(camera_);
+	player_.Draw(cameraController_.GetCamera());
 	skydome_.Draw();
 
 	// 3D描画後処理
