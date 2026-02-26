@@ -49,6 +49,8 @@ void GameScene::Initialize() {
 
     player_.Initialize(modelPlayer_, nullptr, playerPosition);
 
+	player_.SetMapChipField(mapChipField_);
+
     // カメラコントローラ初期化
     cameraController_.Initialize();
     cameraController_.SetTarget(&player_);
