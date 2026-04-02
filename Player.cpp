@@ -421,6 +421,9 @@ void Player::Update() {
 	// 接地状態の切り替え処理
 	GroundTransition(collisionMapInfo);
 
+	// 壁に接触している場合の処理
+	CollisionWall(collisionMapInfo);
+
 	// 旋回制御
 	if (turnTimer_ > 0.0f) {
 
