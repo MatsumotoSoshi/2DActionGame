@@ -26,6 +26,11 @@ public:
 	/// </summary>
 	void Draw(const KamataEngine::Camera& camera);
 
+	/// <summary>
+	/// 
+	/// </summary>
+	void Move();
+
 	KamataEngine::Vector3 velocity_ = {};
 	static inline const float kAcceleration = 0.05f;
 	static inline const float kAttenuation = 0.1f;
@@ -60,39 +65,60 @@ public:
 	const KamataEngine::Vector3& GetVelocity() const { return velocity_; }
 
 	void SetMapChipField(MapChipField* mapChipField) { mapChipField_ = mapChipField; }
+
+	//キャラクターの当たり判定サイズ
 	static inline const float kWidth = 0.8f;
 	static inline const float kHeight = 0.8f;
 
-	// マップとの当たり判定情報
 	struct CollisionMapInfo {
-		bool ceilingCollision = false;   // 天井衝突
-		bool landing = false;            // 着地
-		bool wallContact = false;        // 壁接触
-		KamataEngine::Vector3 amountOfMovement;       // 移動量
+		bool hitCeiling_ = false;    // 天井衝突フラグ
+		bool hitGround_ = false;     // 着地フラグ
+		bool hitWall_ = false;       // 壁衝突フラグ
+		KamataEngine::Vector3 move_;               // 移動量
 	};
 
-	// マップ衝突判定
-	void CollisionMap(CollisionMapInfo& info);
+	// マップとの衝突判定
+	void CollisionMapTop(CollisionMapInfo& collisionMapInfo);
+	void CollisionMapBottom(CollisionMapInfo& collisionMapInfo);
+	void CollisionMapRight(CollisionMapInfo& collisionMapInfo);
+	void CollisionMapLeft(CollisionMapInfo& collisionMapInfo);
+
 
 	// 角
 	enum Corner {
-		kRightBottom,       // 右下
-		kLeftBottom,        // 左下
-		kRightTop,          // 右上
-		kLeftTop,           // 左上
+		kRightBottom, // 右下
+		kLeftBottom,  // 左下
+		kRightTop,    // 右上
+		kLeftTop,      // 左上
 
-		kNumCorner          // 要素数
+		kNumCorner    // 要素数
 	};
 
 	KamataEngine::Vector3 CornerPosition(const KamataEngine::Vector3& center, Corner corner);
 
-	static inline const float kBlank = 0.01f;
+	static inline const float kWidthHalf = kWidth / 2.0f;
+	static inline const float kHeightHalf = kHeight / 2.0f;
+	static inline const float kBlank = 0.001f;
 
 	// 判定結果を反映して移動させる
-	void ResultMove(const CollisionMapInfo& info);
-	 
-	// 天井に接触している場合の処理
+	void MoveResult(const CollisionMapInfo& collisionMapInfo);
+
+	// // 天井に接触している場合の処理
 	void CollisionCeiling(const CollisionMapInfo& info);
+
+	// 接地状態の切り替え処理
+	void GroundTransition(const CollisionMapInfo& info); 
+
+	// 着地時の速度減衰率
+	static inline const float kAttenuationLanding = 0.1f;
+
+	static inline const float epsilon = 0.001f;
+
+	// 壁に接触している場合の処理 
+	void CollisionWall(const CollisionMapInfo& info);
+
+	// 壁接触時の速度減衰率
+	static inline const float kAttenuationWall = 0.9f;
 
 private:
 	KamataEngine::Model* model_ = nullptr;
