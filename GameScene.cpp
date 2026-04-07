@@ -35,6 +35,7 @@ void GameScene::Initialize() {
     modelBlock_ = Model::CreateFromOBJ("block");
     modelSkydome_ = Model::CreateFromOBJ("SkyDome");
     modelPlayer_ = Model::CreateFromOBJ("Player");
+	modelEnemy_ = Model::CreateFromOBJ("enemy");
 
     // デバッグカメラ生成
     debugCamera_ = new DebugCamera(1280, 720);
@@ -43,13 +44,18 @@ void GameScene::Initialize() {
     mapChipField_->LoadMapChipCsv("Resources/blocks.csv");
 
     // プレイヤー初期位置
-    Vector3 playerPosition = mapChipField_->GetMapChipPositionByIndex(0, 0);
-    playerPosition.x = 1.0f;
+    Vector3 playerPosition = mapChipField_->GetMapChipPositionByIndex(1, 0);
     playerPosition.y = 1.0f;
 
     player_.Initialize(modelPlayer_, nullptr, playerPosition);
 
 	player_.SetMapChipField(mapChipField_);
+
+	// 敵
+	Vector3 enemyPosition = mapChipField_->GetMapChipPositionByIndex(5, 0);
+	enemyPosition.y = 1.0f;
+
+	enemy_.Initialize(modelEnemy_, nullptr, enemyPosition);
 
     // カメラコントローラ初期化
     cameraController_.Initialize();
@@ -88,6 +94,7 @@ void GameScene::Update() {
 
 	 skydome_.Update();
 	 player_.Update();
+	 enemy_.Update();
 	 cameraController_.Update();
 
 	 #ifdef _DEBUG
@@ -127,6 +134,7 @@ void GameScene::Draw() {
 
 	player_.Draw(cameraController_.GetCamera());
 	skydome_.Draw();
+	enemy_.Draw(cameraController_.GetCamera());
 
 	// 3D描画後処理
 	Model::PostDraw();
@@ -137,6 +145,7 @@ GameScene::~GameScene() {
 	delete debugCamera_;
 	delete modelSkydome_;
 	delete mapChipField_;
+	
 
 	for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTransformBlocks_) {
 		for (WorldTransform* worldTransformBlock : worldTransformBlockLine) {

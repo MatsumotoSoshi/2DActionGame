@@ -26,10 +26,6 @@ public:
 	/// </summary>
 	void Draw(const KamataEngine::Camera& camera);
 
-	/// <summary>
-	/// 
-	/// </summary>
-	void Move();
 
 	KamataEngine::Vector3 velocity_ = {};
 	static inline const float kAcceleration = 0.05f;

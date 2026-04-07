@@ -2,15 +2,32 @@
 using namespace KamataEngine;
 
 Matrix4x4 WorldMatrix::MakeAffineMatrix(const Vector3& scale, const Vector3& rotation, const Vector3& translation) {
-	float c = cosf(rotation.y);
-	float s = sinf(rotation.y);
+
+	// 各軸のsin/cos
+	float cx = cosf(rotation.x);
+	float sx = sinf(rotation.x);
+	float cy = cosf(rotation.y);
+	float sy = sinf(rotation.y);
+	float cz = cosf(rotation.z);
+	float sz = sinf(rotation.z);
 
 	Matrix4x4 matrix = {
-		scale.x * c, 0.0f, -scale.x * s, 0.0f,
-		0.0f, scale.y, 0.0f, 0.0f, 
-		scale.z * s, 0.0f, scale.z * c, 0.0f,
-		translation.x, translation.y, translation.z, 1.0f
-	};
+	    scale.x * (cy * cz + sy * sx * sz),
+	    scale.x * (cx * sz),
+	    scale.x * (cy * sx * sz - sy * cz),
+	    0.0f,
+	    scale.y * (sy * sx * cz - cy * sz),
+	    scale.y * (cx * cz),
+	    scale.y * (sy * sz + cy * sx * cz),
+	    0.0f,
+	    scale.z * (sy * cx),
+	    scale.z * (-sx),
+	    scale.z * (cy * cx),
+	    0.0f,
+	    translation.x,
+	    translation.y,
+	    translation.z,
+	    1.0f};
 
 	return matrix;
 }

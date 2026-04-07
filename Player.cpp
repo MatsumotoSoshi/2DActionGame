@@ -3,16 +3,8 @@
 #include <numbers>
 #include <algorithm>
 #include "MapChipField.h"
+#include "Operator.h"
 using namespace KamataEngine;
-
-Vector3 operator+(const Vector3& a, const Vector3& b) { return {a.x + b.x, a.y + b.y, a.z + b.z}; }
-
-Vector3& operator+=(Vector3& a, const Vector3& b) {
-	a.x += b.x;
-	a.y += b.y;
-	a.z += b.z;
-	return a;
-}
 
 void Player::Initialize(Model* model, Camera* camera, const Vector3& position) {
 	model_ = model;
