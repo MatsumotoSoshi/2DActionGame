@@ -7,6 +7,7 @@
 #include "MapChipField.h"
 #include "CameraController.h"
 #include "Enemy.h"
+#include "Collision.h"
 
 class GameScene {
 public:
@@ -33,6 +34,9 @@ public:
 
 	void GeneralBlocks();
 
+	// すべての当たり判定を行う
+	void CheckAllCollisions();
+
 private:
 	KamataEngine::Model* modelBlock_ = nullptr;
 	KamataEngine::Camera camera_;
@@ -47,7 +51,7 @@ private:
 	WorldMatrix worldMatrix_;
 	MapChipField* mapChipField_;
 	CameraController cameraController_;
-	Enemy enemy_;
+	std::list<Enemy*> enemies_;
 
 	KamataEngine::Model* modelSkydome_ = nullptr;
 	KamataEngine::Model* modelPlayer_ = nullptr;

@@ -97,6 +97,32 @@ Vector3 Player::CornerPosition(const Vector3& center, Corner corner ){
 	return center + offSetTable[static_cast<uint32_t>(corner)];
 }
 
+Vector3 Player::GetWorldPosition() {
+	Vector3 worldPos;
+
+	worldPos.x = worldTransform_.matWorld_.m[3][0];
+	worldPos.y = worldTransform_.matWorld_.m[3][1];
+	worldPos.z = worldTransform_.matWorld_.m[3][2];
+
+	return worldPos;
+}
+
+AABB Player::GetAABB() { 
+	Vector3 worldPos = GetWorldPosition();
+	AABB aabb;
+
+	aabb.min = {worldPos.x - kWidthHalf, worldPos.y - kHeightHalf, worldPos.z - kWidthHalf};
+	aabb.max = {worldPos.x + kWidthHalf, worldPos.y + kHeightHalf, worldPos.z + kWidthHalf};
+
+	return aabb;
+}
+
+void Player::onCollision(const Enemy* enemy) { 
+	(void)enemy; 
+	// ジャンプ開始
+	velocity_ += Vector3(0, kJumpAcceleration_, 0);
+}
+
 void Player::CollisionMapTop(CollisionMapInfo& info) {
 	// 上昇あり？
 	if (info.move_.y <= 0) {

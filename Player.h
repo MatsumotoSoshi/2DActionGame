@@ -1,8 +1,10 @@
 #pragma once
 #include "KamataEngine.h"
 #include "WorldMatrix.h"
+#include "AABB.h"
 
 class MapChipField;
+class Enemy;
 
 class Player {
 public:
@@ -115,6 +117,14 @@ public:
 
 	// 壁接触時の速度減衰率
 	static inline const float kAttenuationWall = 0.9f;
+
+	// ワールド座標を取得
+	KamataEngine::Vector3 GetWorldPosition();
+
+	AABB GetAABB();
+
+	// 衝突反応
+	void onCollision(const Enemy* enemy);
 
 private:
 	KamataEngine::Model* model_ = nullptr;

@@ -16,6 +16,30 @@ void Enemy::Initialize(Model* model, Camera* camera, const Vector3& position) {
 	walkTimmer_ = 0.0f;
 }
 
+Vector3 Enemy::GetWorldPosition() {
+	Vector3 worldPos;
+
+	worldPos.x = worldTransform_.matWorld_.m[3][0];
+	worldPos.y = worldTransform_.matWorld_.m[3][1];
+	worldPos.z = worldTransform_.matWorld_.m[3][2];
+
+	return worldPos;
+}
+
+AABB Enemy::GetAABB() {
+	Vector3 worldPos = GetWorldPosition();
+	AABB aabb;
+
+	aabb.min = {worldPos.x - kWidthHalf, worldPos.y - kHeightHalf, worldPos.z - kWidthHalf};
+	aabb.max = {worldPos.x + kWidthHalf, worldPos.y + kHeightHalf, worldPos.z + kWidthHalf};
+
+	return aabb;
+}
+
+void Enemy::onCollision(const Player* player) { 
+	(void)player; 
+}
+
 void Enemy::Update() {
 	// 移動
 	worldTransform_.translation_ += velocity_;

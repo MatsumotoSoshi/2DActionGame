@@ -52,10 +52,15 @@ void GameScene::Initialize() {
 	player_.SetMapChipField(mapChipField_);
 
 	// 敵
-	Vector3 enemyPosition = mapChipField_->GetMapChipPositionByIndex(5, 0);
-	enemyPosition.y = 1.0f;
+	for (int32_t i = 0; i < 1; ++i) {
+		Enemy* newEnemy = new Enemy();
 
-	enemy_.Initialize(modelEnemy_, nullptr, enemyPosition);
+		Vector3 enemyPosition = mapChipField_->GetMapChipPositionByIndex(5 + i, 0);
+		enemyPosition.y = 1.0f;
+
+		newEnemy->Initialize(modelEnemy_, &camera_, enemyPosition);
+		enemies_.push_back(newEnemy);
+	}
 
     // カメラコントローラ初期化
     cameraController_.Initialize();
@@ -82,6 +87,34 @@ void GameScene::Initialize() {
     GeneralBlocks();
 }
 
+void GameScene::CheckAllCollisions() {
+	#pragma region 自キャラと敵キャラの当たり判定
+	// 自キャラと敵キャラの当たり判定
+	{
+		// 判定対象1と2の座標
+		AABB aabb1, aabb2;
+	
+		// 自キャラの座標
+		aabb1 = player_.GetAABB();
+
+		// 自キャラと敵弾すべての当たり判定
+		for (Enemy *enemy : enemies_) {
+			// 敵弾の座標
+			aabb2 = enemy->GetAABB();
+
+			// AABB同士の交差判定
+			if (Collision::IsCollision(aabb1, aabb2)) {
+				// 自キャラの衝突時コールバックを呼び出す
+				player_.onCollision(enemy);
+
+				// 敵弾の衝突時コールバックを呼び出す
+				enemy->onCollision(&player_);
+			}
+		}
+	}
+    #pragma endregion	
+}
+
 void GameScene::Update() { 
 	
      for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTransformBlocks_) {
@@ -94,8 +127,13 @@ void GameScene::Update() {
 
 	 skydome_.Update();
 	 player_.Update();
-	 enemy_.Update();
+	 for (Enemy* enemy : enemies_) {
+		 enemy->Update();
+	 }
 	 cameraController_.Update();
+
+	 // すべての当たり判定を行う
+	 CheckAllCollisions();
 
 	 #ifdef _DEBUG
 	 // デバッグカメラの切り替え
@@ -134,7 +172,9 @@ void GameScene::Draw() {
 
 	player_.Draw(cameraController_.GetCamera());
 	skydome_.Draw();
-	enemy_.Draw(cameraController_.GetCamera());
+	for (Enemy* enemy : enemies_) {
+		enemy->Draw(cameraController_.GetCamera());
+	}
 
 	// 3D描画後処理
 	Model::PostDraw();
@@ -146,6 +186,10 @@ GameScene::~GameScene() {
 	delete modelSkydome_;
 	delete mapChipField_;
 	
+	for (Enemy* enemy : enemies_) {
+		delete enemy;
+	}
+	enemies_.clear();
 
 	for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTransformBlocks_) {
 		for (WorldTransform* worldTransformBlock : worldTransformBlockLine) {

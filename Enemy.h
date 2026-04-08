@@ -1,6 +1,9 @@
 #pragma once
 #include "KamataEngine.h"
 #include "WorldMatrix.h"
+#include "AABB.h"
+
+class Player;
 
 /// <summary>
 /// 敵
@@ -40,6 +43,19 @@ public:
 	// 経過時間
 	float walkTimmer_ = 0.0f;
 
+	static inline const float kWidth = 0.8f;
+	static inline const float kHeight = 0.8f;
+
+	static inline const float kWidthHalf = kWidth / 2.0f;
+	static inline const float kHeightHalf = kHeight / 2.0f;
+
+	// ワールド座標を取得
+	KamataEngine::Vector3 GetWorldPosition();
+
+	AABB GetAABB();
+
+	// 衝突反応
+	void onCollision(const Player* player);
 
 private:
 	KamataEngine::WorldTransform worldTransform_;
