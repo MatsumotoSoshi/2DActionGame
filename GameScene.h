@@ -8,6 +8,7 @@
 #include "CameraController.h"
 #include "Enemy.h"
 #include "Collision.h"
+#include "DeathParticles.h"
 
 class GameScene {
 public:
@@ -52,8 +53,10 @@ private:
 	MapChipField* mapChipField_;
 	CameraController cameraController_;
 	std::list<Enemy*> enemies_;
+	DeathParticles* deathParticles_ = nullptr;
 
 	KamataEngine::Model* modelSkydome_ = nullptr;
 	KamataEngine::Model* modelPlayer_ = nullptr;
 	KamataEngine::Model* modelEnemy_ = nullptr;
+	KamataEngine::Model* modelDeathParticles_ = nullptr;
 };

@@ -36,6 +36,7 @@ void GameScene::Initialize() {
     modelSkydome_ = Model::CreateFromOBJ("SkyDome");
     modelPlayer_ = Model::CreateFromOBJ("Player");
 	modelEnemy_ = Model::CreateFromOBJ("enemy");
+	modelDeathParticles_ = Model::CreateFromOBJ("deathParticle");
 
     // デバッグカメラ生成
     debugCamera_ = new DebugCamera(1280, 720);
@@ -44,7 +45,7 @@ void GameScene::Initialize() {
     mapChipField_->LoadMapChipCsv("Resources/blocks.csv");
 
     // プレイヤー初期位置
-    Vector3 playerPosition = mapChipField_->GetMapChipPositionByIndex(1, 0);
+    Vector3 playerPosition = mapChipField_->GetMapChipPositionByIndex(2, 0);
     playerPosition.y = 1.0f;
 
     player_.Initialize(modelPlayer_, nullptr, playerPosition);
@@ -61,6 +62,10 @@ void GameScene::Initialize() {
 		newEnemy->Initialize(modelEnemy_, &camera_, enemyPosition);
 		enemies_.push_back(newEnemy);
 	}
+
+	// 仮の生成処理
+	deathParticles_ = new DeathParticles;
+	deathParticles_->Initialize(modelDeathParticles_, &camera_, playerPosition);
 
     // カメラコントローラ初期化
     cameraController_.Initialize();
@@ -132,6 +137,10 @@ void GameScene::Update() {
 	 }
 	 cameraController_.Update();
 
+	 if (deathParticles_) {
+		 deathParticles_->Update();
+	 }
+
 	 // すべての当たり判定を行う
 	 CheckAllCollisions();
 
@@ -176,6 +185,10 @@ void GameScene::Draw() {
 		enemy->Draw(cameraController_.GetCamera());
 	}
 
+	if (deathParticles_) {
+		deathParticles_->Draw(cameraController_.GetCamera());
+	}
+
 	// 3D描画後処理
 	Model::PostDraw();
 }
@@ -185,11 +198,11 @@ GameScene::~GameScene() {
 	delete debugCamera_;
 	delete modelSkydome_;
 	delete mapChipField_;
-	
+	delete deathParticles_;
+
 	for (Enemy* enemy : enemies_) {
 		delete enemy;
 	}
-	enemies_.clear();
 
 	for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTransformBlocks_) {
 		for (WorldTransform* worldTransformBlock : worldTransformBlockLine) {
