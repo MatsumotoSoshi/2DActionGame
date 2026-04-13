@@ -26,6 +26,8 @@ void GameScene::GeneralBlocks() {
 }
 
 void GameScene::Initialize() { 
+	phase_ = Phase::kFadeIn;
+
 	 camera_.farZ = 5000.0f;
 
 	// カメラ初期化
@@ -63,10 +65,6 @@ void GameScene::Initialize() {
 		enemies_.push_back(newEnemy);
 	}
 
-	// 仮の生成処理
-	deathParticles_ = new DeathParticles;
-	deathParticles_->Initialize(modelDeathParticles_, &camera_, playerPosition);
-
     // カメラコントローラ初期化
     cameraController_.Initialize();
     cameraController_.SetTarget(&player_);
@@ -88,6 +86,11 @@ void GameScene::Initialize() {
 
     skydome_.Initialize(modelSkydome_,
         &cameraController_.GetCamera());
+
+	// フェードの初期化
+	fade_ = new Fade();
+	fade_->Initialize();
+	fade_->Start(Fade::Status::FadeIn, fadeDuration_);
 
     GeneralBlocks();
 }
@@ -120,77 +123,243 @@ void GameScene::CheckAllCollisions() {
     #pragma endregion	
 }
 
-void GameScene::Update() { 
-	
-     for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTransformBlocks_) {
-		for (WorldTransform* worldTransformBlock : worldTransformBlockLine) {
-			 if (!worldTransformBlock)
-				 continue;
-			 worldMatrix_.Update(*worldTransformBlock);
+void GameScene::CameraUpdate() { 
+	#ifdef _DEBUG
+	// デバッグカメラの切り替え
+	if (Input::GetInstance()->TriggerKey(DIK_SPACE)) {
+		isDebugCameraActive_ = true;
+	}
+#endif
+
+	if (isDebugCameraActive_) {
+		// デバッグカメラ更新
+		debugCamera_->Update();
+		// デバッグカメラのビュー行列
+		cameraController_.GetCamera().matView = debugCamera_->GetCamera().matView;
+		// デバッグカメラのプロジェクション行列
+		cameraController_.GetCamera().matProjection = debugCamera_->GetCamera().matProjection;
+		// ビュープロジェクション行列の転送
+		cameraController_.GetCamera().TransferMatrix();
+	} else {
+		// ビュープロジェクション行列の更新と転送
+		cameraController_.GetCamera().UpdateMatrix();
+	}
+}
+
+void GameScene::ChangePhase() {
+	switch (phase_) {
+	case Phase::kPlay:
+		// ゲームプレイフェーズの処理
+		if (player_.isDead_) {
+			// 死亡演出フェーズに切り替え
+			phase_ = Phase::kDeath;
+			// 自キャラの座標を取得
+			Vector3 deathParticlePosition = player_.GetWorldPosition();
+
+			// 自キャラ座標にデスパーティクルを発生、初期化
+			deathParticles_ = new DeathParticles;
+			deathParticles_->Initialize(modelDeathParticles_, &camera_, deathParticlePosition);
 		}
-	 }
+		break;
+	case Phase::kDeath:
+		// デス演出フェーズの処理
+		
+		break;
+	}
+}
 
-	 skydome_.Update();
-	 player_.Update();
-	 for (Enemy* enemy : enemies_) {
-		 enemy->Update();
-	 }
-	 cameraController_.Update();
+void GameScene::Update() { 
+	ChangePhase();
 
-	 if (deathParticles_) {
-		 deathParticles_->Update();
-	 }
+	// 天球の更新
+	skydome_.Update();
 
-	 // すべての当たり判定を行う
-	 CheckAllCollisions();
+	// 敵の更新(複数)
+	for (Enemy* enemy : enemies_) {
+		//enemy->Update();
+	}
 
-	 #ifdef _DEBUG
-	 // デバッグカメラの切り替え
-	 if (Input::GetInstance()->TriggerKey(DIK_SPACE)) {
-		 isDebugCameraActive_ = true;
-	 }
-	 #endif
+	// カメラコントローラーの更新
+	cameraController_.Update();
 
-	 if (isDebugCameraActive_) {
-		 // デバッグカメラ更新
-		 debugCamera_->Update();
-		 // デバッグカメラのビュー行列
-		 cameraController_.GetCamera().matView = debugCamera_->GetCamera().matView; 
-		 // デバッグカメラのプロジェクション行列
-		 cameraController_.GetCamera().matProjection = debugCamera_->GetCamera().matProjection;
-		 // ビュープロジェクション行列の転送
-		 cameraController_.GetCamera().TransferMatrix();
-	 } else {
-		 // ビュープロジェクション行列の更新と転送
-		 cameraController_.GetCamera().UpdateMatrix();
-	 }
-	
+	// カメラの更新
+	CameraUpdate();
+
+	// ブロックの更新
+    for (auto& line : worldTransformBlocks_) {
+        for (auto* block : line) {
+            if (block) worldMatrix_.Update(*block);
+        }
+    }
+
+	switch (phase_) {
+	case Phase::kFadeIn:
+
+		// 自キャラの更新
+		player_.Update();
+
+		// フェードインの処理
+		fade_->Update();
+
+		if (fade_->IsFinished()) {
+			phase_ = Phase::kPlay;
+		}
+
+		break;
+
+	case Phase::kPlay:
+		// ゲームフェーズの処理
+		
+		// 自キャラの更新
+		player_.Update();
+
+		// すべての当たり判定
+		CheckAllCollisions();
+
+		break;
+
+	case Phase::kDeath:
+		// デス演出フェーズの処理
+		
+		// デスパーティクルの更新
+		if (deathParticles_) {
+			deathParticles_->Update();
+		}
+
+		if (deathParticles_->IsFinished()) {
+			fade_->Start(Fade::Status::FadeOut, fadeDuration_);
+			phase_ = Phase::kFadeOut;
+		}
+
+		break;
+
+		case Phase::kFadeOut:
+
+		// 自キャラの更新
+		player_.Update();
+
+		// フェードアウトの処理
+		fade_->Update();
+
+		if (fade_->IsFinished()) {
+			isFinished_ = true; 
+		}
+		break;
+	}
+
 }
 
 void GameScene::Draw() {
 	// 3D描画前処理
 	Model::PreDraw();
 
-	for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTransformBlocks_) {
-		for (WorldTransform* worldTransformBlock : worldTransformBlockLine) {
-			if (!worldTransformBlock)
-				continue;
-			modelBlock_->Draw(*worldTransformBlock, cameraController_.GetCamera());
+	switch (phase_) {
+	case Phase::kFadeIn:
+		// フェードインフェーズの描画処理
+		// 天球の描画
+		skydome_.Draw();
+
+		// 自キャラの描画
+		player_.Draw(cameraController_.GetCamera());
+
+		// 敵の描画(複数)
+		for (Enemy* enemy : enemies_) {
+			enemy->Draw(cameraController_.GetCamera());
 		}
-	}
 
-	player_.Draw(cameraController_.GetCamera());
-	skydome_.Draw();
-	for (Enemy* enemy : enemies_) {
-		enemy->Draw(cameraController_.GetCamera());
-	}
+		// ブロックの描画
+		for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTransformBlocks_) {
+			for (WorldTransform* worldTransformBlock : worldTransformBlockLine) {
+				if (!worldTransformBlock)
+					continue;
+				modelBlock_->Draw(*worldTransformBlock, cameraController_.GetCamera());
+			}
+		}
+		break;
 
-	if (deathParticles_) {
-		deathParticles_->Draw(cameraController_.GetCamera());
+	case Phase::kPlay:
+		// ゲームフェーズの描画処理
+
+		// 天球の描画
+		skydome_.Draw();
+
+		// 自キャラの描画
+		player_.Draw(cameraController_.GetCamera());
+
+		// 敵の描画(複数)
+		for (Enemy* enemy : enemies_) {
+			enemy->Draw(cameraController_.GetCamera());
+		}
+
+		// ブロックの描画
+		for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTransformBlocks_) {
+			for (WorldTransform* worldTransformBlock : worldTransformBlockLine) {
+				if (!worldTransformBlock)
+					continue;
+				modelBlock_->Draw(*worldTransformBlock, cameraController_.GetCamera());
+			}
+		}
+
+		break;
+
+	case Phase::kDeath:
+		// デス演出フェーズの描画処理
+
+		if (deathParticles_ && deathParticles_->IsFinished()) {
+			isFinished_ = true;
+		}
+
+		// 天球の描画
+		skydome_.Draw();
+
+		// デスパーティクルの描画
+		if (deathParticles_) {
+			deathParticles_->Draw(cameraController_.GetCamera());
+		}
+
+		// 敵の描画(複数)
+		for (Enemy* enemy : enemies_) {
+			enemy->Draw(cameraController_.GetCamera());
+		}
+
+		// ブロックの描画
+		for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTransformBlocks_) {
+			for (WorldTransform* worldTransformBlock : worldTransformBlockLine) {
+				if (!worldTransformBlock)
+					continue;
+				modelBlock_->Draw(*worldTransformBlock, cameraController_.GetCamera());
+			}
+		}
+
+		break;
+
+	case Phase::kFadeOut:
+		// フェードアウトフェーズの描画処理
+		// 天球の描画
+		skydome_.Draw();
+
+		// 敵の描画(複数)
+		for (Enemy* enemy : enemies_) {
+			enemy->Draw(cameraController_.GetCamera());
+		}
+
+		// ブロックの描画
+		for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTransformBlocks_) {
+			for (WorldTransform* worldTransformBlock : worldTransformBlockLine) {
+				if (!worldTransformBlock)
+					continue;
+				modelBlock_->Draw(*worldTransformBlock, cameraController_.GetCamera());
+			}
+		}
+
+		break;
 	}
 
 	// 3D描画後処理
 	Model::PostDraw();
+
+	// フェードの描画
+	fade_->Draw();
 }
 
 GameScene::~GameScene() { 

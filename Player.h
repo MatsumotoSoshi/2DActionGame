@@ -116,6 +116,7 @@ public:
 	void CollisionWall(const CollisionMapInfo& info);
 
 	// 壁接触時の速度減衰率
+
 	static inline const float kAttenuationWall = 0.9f;
 
 	// ワールド座標を取得
@@ -125,6 +126,52 @@ public:
 
 	// 衝突反応
 	void onCollision(const Enemy* enemy);
+
+	// デスフラグ
+	bool isDead_ = false;
+
+	// デスフラグのゲッター
+	bool IsDead() const { return isDead_; }
+	
+	// 通常行動更新
+	void BehaviorRootUpdate();
+
+	// 攻撃行動更新
+	void BehaviorAttackUpdate(CollisionMapInfo& info);
+
+	enum class Behavior { 
+		kRoot,        // 通常状態
+		kAttack,      // 攻撃中
+		kUnknown      // 不明
+	};
+
+	// ふるまい
+	Behavior behavior_ = Behavior::kRoot;
+
+	// ふるまいリクエスト
+	Behavior behaviorRequest_ = Behavior::kUnknown;
+
+	// 通常行動初期化
+	void BehaviorRootInitialize();
+
+	// 攻撃行動初期化
+	void BehaviorAttackInitialize();
+
+	// 攻撃ギミックの経過時間カウンター
+	uint32_t attackParameter_ = 0;
+
+	// 攻撃時間
+	static inline const uint32_t kTimeCharge = 5;
+	static inline const uint32_t kTimeRush = 10;
+	static inline const uint32_t kTimeRear = 5;
+
+	enum class AttackPhase {
+		kCharge ,      // 溜め
+		kRush,         // 突進
+		kRear,         // 余韻
+	};
+
+	AttackPhase attackPhase_ = AttackPhase::kCharge;
 
 private:
 	KamataEngine::Model* model_ = nullptr;

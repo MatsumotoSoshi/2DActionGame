@@ -47,6 +47,8 @@ public:
 	// 色数値
 	KamataEngine::Vector4 color_;
 
+	bool IsFinished() const { return isFinished_; }
+
 private:
 	KamataEngine::Model* model_ = nullptr;
 	KamataEngine::Camera* camera_ = nullptr;

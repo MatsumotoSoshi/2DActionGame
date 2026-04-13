@@ -4,6 +4,7 @@
 #include <algorithm>
 #include "MapChipField.h"
 #include "Operator.h"
+#include "Easing.h"
 using namespace KamataEngine;
 
 void Player::Initialize(Model* model, Camera* camera, const Vector3& position) {
@@ -119,6 +120,7 @@ AABB Player::GetAABB() {
 
 void Player::onCollision(const Enemy* enemy) { 
 	(void)enemy; 
+	isDead_ = true;
 }
 
 void Player::CollisionMapTop(CollisionMapInfo& info) {
@@ -413,9 +415,20 @@ void Player::CollisionWall(const CollisionMapInfo& info) {
 	}
 }
 
-void Player::Update() {
-	
-	Move();	
+void Player::BehaviorRootInitialize() { 
+}
+
+void Player::BehaviorAttackInitialize() {
+    // カウンター初期化
+	attackParameter_ = 0;
+	velocity_ = Vector3{0, 0, 0};
+
+	attackPhase_ = AttackPhase::kCharge;
+}
+
+void Player::BehaviorRootUpdate() {
+
+	Move();
 
 	// 衝突情報を初期化
 	CollisionMapInfo collisionMapInfo;
@@ -427,7 +440,7 @@ void Player::Update() {
 	CollisionMapBottom(collisionMapInfo);
 	CollisionMapRight(collisionMapInfo);
 	CollisionMapLeft(collisionMapInfo);
-	
+
 	// 判定結果を反映して移動させる
 	MoveResult(collisionMapInfo);
 
@@ -462,8 +475,140 @@ void Player::Update() {
 		worldTransform_.rotation_.y = turnFirstRotationY_ + (destinationRotationY - turnFirstRotationY_) * easeInOut;
 	}
 
+	if (Input::GetInstance()->TriggerKey(DIK_RETURN)) {
+		// 攻撃ビヘイビアをリクエスト
+		behaviorRequest_ = Behavior::kAttack;
+
+	}
+
 	// ワールド行列を更新
 	worldMatrix_.Update(worldTransform_);
+}
+
+void Player::BehaviorAttackUpdate(CollisionMapInfo& info) {
+	// 予備動作
+	attackParameter_++;
+
+	// 溜め動作用の速度
+	Vector3 velocity{};
+	// 突進用の速度
+	const Vector3 attackVelocity = {0.75f, 0.0f, 0.0f};
+
+	switch (attackPhase_) {
+		// 溜め動作
+	case AttackPhase::kCharge:
+	default: {
+		float t = static_cast<float>(attackParameter_) / static_cast<float>(kTimeCharge);
+		worldTransform_.scale_.z = Easing::EaseOut(t, 1.0f, 0.3f);
+		worldTransform_.scale_.y = Easing::EaseOut(t, 1.0f, 1.6f);
+		// 前進動作へ移行
+		if (attackParameter_ >= kTimeCharge) {
+			attackPhase_ = AttackPhase::kRush;
+			attackParameter_ = 0;
+		}
+		
+		break;
+	}
+
+		// 突進動作
+	case AttackPhase::kRush: {
+		float t = static_cast<float>(attackParameter_) / static_cast<float>(kTimeRush);
+		worldTransform_.scale_.z = Easing::EaseIn(t, 1.3f, 1.0f);
+		worldTransform_.scale_.y = Easing::EaseIn(t, 0.7f, 1.0f);
+		// 右向き？
+		if (lrDirection_ == LRDirection::kRight) {
+			velocity += attackVelocity;
+		} else {
+			velocity -= attackVelocity;
+		}
+
+		// 余韻動作へ移行
+		if (attackParameter_ >= kTimeRush) {
+			attackPhase_ = AttackPhase::kRear;
+			attackParameter_ = 0;
+		}
+
+		break;
+	}
+
+		// 余韻動作
+	case AttackPhase::kRear: {
+		float t = static_cast<float>(attackParameter_) / static_cast<float>(kTimeRear);
+		worldTransform_.scale_.z = Easing::EaseIn(t, 1.3f, 1.0f);
+		worldTransform_.scale_.y = Easing::EaseIn(t, 0.7f, 1.0f);
+
+		// 既定の時間経過で攻撃終了して通常行動に戻す
+		if (attackParameter_ >= kTimeRear) {
+			behaviorRequest_ = Behavior::kRoot;
+		}
+
+		break;
+	}
+	}
+
+	// 衝突情報を初期化
+	info.move_ = velocity;
+
+	// マップ衝突チェック
+	CollisionMapTop(info);
+	CollisionMapBottom(info);
+	CollisionMapRight(info);
+	CollisionMapLeft(info);
+
+	// 判定結果を反映して移動させる
+	MoveResult(info);
+
+	// 天井に接触している場合の処理
+	CollisionCeiling(info);
+
+	// 接地状態の切り替え処理
+	GroundTransition(info);
+
+	// 壁に接触している場合の処理
+	CollisionWall(info);
+
+	// ワールド行列を更新
+	worldMatrix_.Update(worldTransform_);
+}
+
+void Player::Update() { 
+	// 衝突情報を初期化
+	CollisionMapInfo collisionMapInfo;
+
+	if (behaviorRequest_ != Behavior::kUnknown) {
+		// ふるまいを変更する
+		behavior_ = behaviorRequest_;
+		// 各振る舞いごとの初期化を行う
+		switch (behavior_) {
+		case Behavior::kRoot:
+		default:
+			BehaviorRootInitialize();
+
+			break;
+
+		case Behavior::kAttack:
+			BehaviorAttackInitialize();
+
+			break;
+		}
+
+		// ふるまいリクエストをリセット
+		behaviorRequest_ = Behavior::kUnknown;
+	}
+
+	switch (behavior_) {
+		// 通常行動
+	case Behavior::kRoot:
+	default:
+		BehaviorRootUpdate();
+		break;
+
+		// 攻撃行動
+	case Behavior::kAttack:
+		BehaviorAttackUpdate(collisionMapInfo);
+		break;
+	}
+
 } 
 
 void Player::Draw(const Camera& camera) { 

@@ -9,6 +9,7 @@
 #include "Enemy.h"
 #include "Collision.h"
 #include "DeathParticles.h"
+#include "Fade.h"
 
 class GameScene {
 public:
@@ -38,6 +39,31 @@ public:
 	// すべての当たり判定を行う
 	void CheckAllCollisions();
 
+	// ゲームのフェーズ
+	enum class Phase {
+		kFadeIn,    // フェードイン
+		kPlay,      // ゲームプレイ
+		kDeath,     // デス演出
+		kFadeOut,   // フェードアウト
+	};
+
+	// ゲームの現在フェーズ
+	Phase phase_;
+
+	// カメラ更新関数
+	void CameraUpdate();
+
+	void ChangePhase();
+
+	// 終了フラグ
+	bool isFinished_ = false;
+
+	// デスフラグのゲッター
+	bool IsFinished() const { return isFinished_; }
+
+	// フェード時間
+	float fadeDuration_ = 2.0f;
+
 private:
 	KamataEngine::Model* modelBlock_ = nullptr;
 	KamataEngine::Camera camera_;
@@ -54,6 +80,7 @@ private:
 	CameraController cameraController_;
 	std::list<Enemy*> enemies_;
 	DeathParticles* deathParticles_ = nullptr;
+	Fade* fade_ = nullptr;
 
 	KamataEngine::Model* modelSkydome_ = nullptr;
 	KamataEngine::Model* modelPlayer_ = nullptr;

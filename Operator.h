@@ -9,3 +9,10 @@ inline KamataEngine::Vector3& operator+=(KamataEngine::Vector3& a, const KamataE
 	a.z += b.z;
 	return a;
 }
+
+inline KamataEngine::Vector3& operator-=(KamataEngine::Vector3& a, const KamataEngine::Vector3& b) { 
+	a.x -= b.x;
+	a.y -= b.y;
+	a.z -= b.z;
+	return a;
+}

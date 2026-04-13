@@ -166,13 +166,16 @@
     <ClCompile Include="CameraController.cpp" />
     <ClCompile Include="Collision.cpp" />
     <ClCompile Include="DeathParticles.cpp" />
+    <ClCompile Include="Easing.cpp" />
     <ClCompile Include="Enemy.cpp" />
+    <ClCompile Include="Fade.cpp" />
     <ClCompile Include="GameScene.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="MapChipField.cpp" />
     <ClCompile Include="Player.cpp" />
     <ClCompile Include="Skydome.cpp" />
     <ClCompile Include="test.cpp" />
+    <ClCompile Include="TitleScene.cpp" />
     <ClCompile Include="WorldMatrix.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -277,13 +280,16 @@
     <ClInclude Include="CameraController.h" />
     <ClInclude Include="Collision.h" />
     <ClInclude Include="DeathParticles.h" />
+    <ClInclude Include="Easing.h" />
     <ClInclude Include="Enemy.h" />
+    <ClInclude Include="Fade.h" />
     <ClInclude Include="GameScene.h" />
     <ClInclude Include="MapChipField.h" />
     <ClInclude Include="Operator.h" />
     <ClInclude Include="Player.h" />
     <ClInclude Include="Skydome.h" />
     <ClInclude Include="test.h" />
+    <ClInclude Include="TitleScene.h" />
     <ClInclude Include="WorldMatrix.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

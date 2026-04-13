@@ -34,9 +34,11 @@ Matrix4x4 WorldMatrix::MakeAffineMatrix(const Vector3& scale, const Vector3& rot
 
 void WorldMatrix::Update(WorldTransform& worldTransform) {
 
-	Vector3 scale = {1.0f, 1.0f, 1.0f};
-
-	worldTransform.matWorld_ = MakeAffineMatrix(scale, worldTransform.rotation_, worldTransform.translation_);
+	worldTransform.matWorld_ = MakeAffineMatrix(
+	    worldTransform.scale_, 
+	    worldTransform.rotation_,
+		worldTransform.translation_
+	);
 
 	worldTransform.TransferMatrix();
 }
