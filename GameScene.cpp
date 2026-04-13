@@ -39,6 +39,7 @@ void GameScene::Initialize() {
     modelPlayer_ = Model::CreateFromOBJ("Player");
 	modelEnemy_ = Model::CreateFromOBJ("enemy");
 	modelDeathParticles_ = Model::CreateFromOBJ("deathParticle");
+	modelAttack_ = Model::CreateFromOBJ("hit_effect");
 
     // デバッグカメラ生成
     debugCamera_ = new DebugCamera(1280, 720);
@@ -50,7 +51,7 @@ void GameScene::Initialize() {
     Vector3 playerPosition = mapChipField_->GetMapChipPositionByIndex(2, 0);
     playerPosition.y = 1.0f;
 
-    player_.Initialize(modelPlayer_, nullptr, playerPosition);
+    player_.Initialize(modelPlayer_, modelAttack_, &cameraController_.GetCamera(), playerPosition);
 
 	player_.SetMapChipField(mapChipField_);
 

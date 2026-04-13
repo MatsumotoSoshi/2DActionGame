@@ -86,4 +86,5 @@ private:
 	KamataEngine::Model* modelPlayer_ = nullptr;
 	KamataEngine::Model* modelEnemy_ = nullptr;
 	KamataEngine::Model* modelDeathParticles_ = nullptr;
+	KamataEngine::Model* modelAttack_ = nullptr;
 };

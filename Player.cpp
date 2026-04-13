@@ -7,12 +7,15 @@
 #include "Easing.h"
 using namespace KamataEngine;
 
-void Player::Initialize(Model* model, Camera* camera, const Vector3& position) {
+void Player::Initialize(Model* model, Model* modelAttack, Camera* camera, const Vector3& position) {
 	model_ = model;
+	modelAttack_ = modelAttack;
 
 	worldTransform_.Initialize();
 	worldTransform_.translation_ = position;
 	worldTransform_.rotation_.y = std::numbers::pi_v<float> / 2.0f;
+
+	worldTransformAttack_.Initialize();
 
 	velocity_ = {0, 0, 0}; 
 
@@ -494,6 +497,26 @@ void Player::BehaviorAttackUpdate(CollisionMapInfo& info) {
 	// 突進用の速度
 	const Vector3 attackVelocity = {0.75f, 0.0f, 0.0f};
 
+	// トランスフォームの値をコピー
+	worldTransformAttack_.translation_ = worldTransform_.translation_;
+	worldTransformAttack_.rotation_ = worldTransform_.rotation_;
+
+	float offset = 0.8f;
+
+	if (lrDirection_ == LRDirection::kRight) {
+		worldTransformAttack_.translation_.x += offset;
+	} else {
+		worldTransformAttack_.translation_.x -= offset;
+	}
+
+	// 向き反転
+	if (lrDirection_ == LRDirection::kLeft) {
+		worldTransformAttack_.scale_.x = -1.0f;
+	} else {
+		worldTransformAttack_.scale_.x = 1.0f;
+	}
+
+
 	switch (attackPhase_) {
 		// 溜め動作
 	case AttackPhase::kCharge:
@@ -569,6 +592,7 @@ void Player::BehaviorAttackUpdate(CollisionMapInfo& info) {
 
 	// ワールド行列を更新
 	worldMatrix_.Update(worldTransform_);
+	worldMatrix_.Update(worldTransformAttack_);
 }
 
 void Player::Update() { 
@@ -613,4 +637,9 @@ void Player::Update() {
 
 void Player::Draw(const Camera& camera) { 
 	 model_->Draw(worldTransform_, camera);
+
+	 // 攻撃中ならエフェクト表示
+	 if (behavior_ == Behavior::kAttack && attackPhase_ == AttackPhase::kRush) {
+		 modelAttack_->Draw(worldTransformAttack_, camera);
+	 }
 }

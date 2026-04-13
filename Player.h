@@ -11,7 +11,7 @@ public:
 	/// <summary>
 	/// 初期化
 	/// </summary>
-	void Initialize(KamataEngine::Model* model, KamataEngine::Camera* camera, const KamataEngine::Vector3& position);
+	void Initialize(KamataEngine::Model* model, KamataEngine::Model* modelAttack, KamataEngine::Camera * camera, const KamataEngine::Vector3& position);
 
 	/// <summary>
 	/// 移動
@@ -163,7 +163,7 @@ public:
 	// 攻撃時間
 	static inline const uint32_t kTimeCharge = 5;
 	static inline const uint32_t kTimeRush = 10;
-	static inline const uint32_t kTimeRear = 5;
+	static inline const uint32_t kTimeRear = 10;
 
 	enum class AttackPhase {
 		kCharge ,      // 溜め
@@ -178,4 +178,6 @@ private:
 	KamataEngine::WorldTransform worldTransform_;
 	WorldMatrix worldMatrix_;
 	MapChipField* mapChipField_ = nullptr;
+	KamataEngine::Model* modelAttack_ = nullptr;
+	KamataEngine::WorldTransform worldTransformAttack_;
 };
