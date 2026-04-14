@@ -56,11 +56,11 @@ void GameScene::Initialize() {
 	player_.SetMapChipField(mapChipField_);
 
 	// 敵
-	for (int32_t i = 0; i < 1; ++i) {
+	for (int32_t i = 0; i < 3; ++i) {
 		Enemy* newEnemy = new Enemy();
 
-		Vector3 enemyPosition = mapChipField_->GetMapChipPositionByIndex(5 + i, 0);
-		enemyPosition.y = 1.0f;
+		Vector3 enemyPosition = mapChipField_->GetMapChipPositionByIndex(10 + i, 0);
+		enemyPosition.y = 1.0f + i;
 
 		newEnemy->Initialize(modelEnemy_, &camera_, enemyPosition);
 		enemies_.push_back(newEnemy);
@@ -108,6 +108,10 @@ void GameScene::CheckAllCollisions() {
 
 		// 自キャラと敵弾すべての当たり判定
 		for (Enemy *enemy : enemies_) {
+			if (enemy->IsCollisionDisabled()) {
+				continue;   //	コリジョン無効の敵はスキップ
+			}
+
 			// 敵弾の座標
 			aabb2 = enemy->GetAABB();
 
@@ -177,8 +181,17 @@ void GameScene::Update() {
 
 	// 敵の更新(複数)
 	for (Enemy* enemy : enemies_) {
-		//enemy->Update();
+		enemy->Update();
 	}
+
+	// デスフラグの立った敵を削除
+	enemies_.remove_if([](Enemy* enemy) {
+		if (enemy->IsDead()) {
+			delete enemy;
+			return true; 
+		}
+		return false;
+	});
 
 	// カメラコントローラーの更新
 	cameraController_.Update();

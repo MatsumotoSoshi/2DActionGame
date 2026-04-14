@@ -173,6 +173,8 @@ public:
 
 	AttackPhase attackPhase_ = AttackPhase::kCharge;
 
+	bool IsAttack() const { return behavior_ == Behavior::kAttack; }
+
 private:
 	KamataEngine::Model* model_ = nullptr;
 	KamataEngine::WorldTransform worldTransform_;

@@ -122,6 +122,10 @@ AABB Player::GetAABB() {
 }
 
 void Player::onCollision(const Enemy* enemy) { 
+	if (IsAttack()) {
+		return;     // 攻撃中はダメージ無効
+	}
+
 	(void)enemy; 
 	isDead_ = true;
 }

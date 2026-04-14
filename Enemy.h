@@ -2,6 +2,7 @@
 #include "KamataEngine.h"
 #include "WorldMatrix.h"
 #include "AABB.h"
+#include "player.h"
 
 class Player;
 
@@ -56,6 +57,33 @@ public:
 
 	// 衝突反応
 	void onCollision(const Player* player);
+
+	// デスフラグ
+	bool isDead_ = false;
+
+	// デスフラグのゲッター
+	bool IsDead() const { return isDead_; }
+
+	enum class Behavior {
+		kWalk,         // 歩行
+	    kDeath,        // デス演出
+	};
+
+	// ふるまい
+	Behavior behavior_ = Behavior::kWalk;
+
+	// ふるまいリクエスト
+	Behavior behaviorRequest_ = Behavior::kWalk;
+
+	// アニメーションタイマー
+	uint32_t animationTimer_ = 0;
+
+
+
+
+	bool isCollisionDisabled_ = false;
+
+	bool IsCollisionDisabled() const { return isCollisionDisabled_; }
 
 private:
 	KamataEngine::WorldTransform worldTransform_;

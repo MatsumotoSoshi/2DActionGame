@@ -1,6 +1,9 @@
+#define NOMINMAX
 #include "Enemy.h"
 #include <numbers>
 #include "Operator.h"
+#include "Easing.h"
+#include <algorithm>
 using namespace KamataEngine;
 
 void Enemy::Initialize(Model* model, Camera* camera, const Vector3& position) { 
@@ -37,22 +40,78 @@ AABB Enemy::GetAABB() {
 }
 
 void Enemy::onCollision(const Player* player) { 
-	(void)player; 
+	// 敵がやられているならなにもしない
+	if (behavior_ == Behavior::kDeath) {
+		return;
+	}
+
+	// プレイヤーが攻撃中なら敵が死ぬ
+	if (player->IsAttack()) {
+		// 敵のふるまいをデス演出に変更
+		behaviorRequest_ = Behavior::kDeath;
+	}
+
 }
 
 void Enemy::Update() {
-	// 移動
-	worldTransform_.translation_ += velocity_;
+	if (behavior_ != behaviorRequest_) {
+		behavior_ = behaviorRequest_;
 
-	walkTimmer_ += 1.0f / 60.0f;
+		// 初期化処理
+		switch (behavior_) {
+		case Behavior::kDeath:
+			animationTimer_ = 0;
+			break;
+		}
+	}
 
-	// 回転アニメーション
-	float param = std::sin(walkTimmer_ * std::numbers::pi_v<float> * 2.0f / kWalkMotionCycle);
-	float degree = kWalkMotionAngleStart + kWalkMotionAngleEnd * (param + 1.0f) / 2.0f;
-	worldTransform_.rotation_.x = degree * std::numbers::pi_v<float> / 180.0f;
+	switch (behavior_) {
+	case Behavior::kWalk: {
 
-	// ワールド行列を更新
-	worldMatrix_.Update(worldTransform_);
+		// 移動
+		worldTransform_.translation_ += velocity_;
+
+		walkTimmer_ += 1.0f / 60.0f;
+
+		// 回転アニメーション
+		float param = std::sin(walkTimmer_ * std::numbers::pi_v<float> * 2.0f / kWalkMotionCycle);
+		float degree = kWalkMotionAngleStart + kWalkMotionAngleEnd * (param + 1.0f) / 2.0f;
+		worldTransform_.rotation_.x = degree * std::numbers::pi_v<float> / 180.0f;
+
+		// ワールド行列を更新
+		worldMatrix_.Update(worldTransform_);
+
+		break;
+	}
+
+	case Behavior::kDeath: {
+		// アニメーションのタイマーを加算する
+		animationTimer_++;
+
+		float deathTime = 45.0f;
+
+		// 進行度（0.0～1.0）
+		float t = static_cast<float>(animationTimer_) / deathTime;
+		t = std::clamp(t, 0.0f, 1.0f);
+
+		// // Y軸周りの回転角をイージングで変化させる
+		worldTransform_.rotation_.y = Easing::EaseOut(t, 0.0f, std::numbers::pi_v<float> * 2.0f);
+
+		// X軸周りの回転角をイージングで変化させる
+		worldTransform_.rotation_.x = Easing::EaseOut(t, 0.0f, -std::numbers::pi_v<float> / 2.0f);
+
+		// スケールを小さくして消える
+		float scale = Easing::EaseIn(t, 1.0f, 0.4f);
+		worldTransform_.scale_ = {scale, scale, scale};
+
+		// 行列更新
+		worldMatrix_.Update(worldTransform_);
+
+		if (animationTimer_ > deathTime) {
+			isDead_ = true;
+		}
+	}
+	}
 }
 
 void Enemy::Draw(const Camera& camera) {
