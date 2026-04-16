@@ -49,6 +49,15 @@ void Enemy::onCollision(const Player* player) {
 	if (player->IsAttack()) {
 		// 敵のふるまいをデス演出に変更
 		behaviorRequest_ = Behavior::kDeath;
+
+		Vector3 effectPos = (this->worldTransform_.translation_ + player->GetWorldTransform().translation_) / 2.0f;
+
+		// 一時的なWorldTransformを作って座標をセット
+		WorldTransform tempTransform;
+		tempTransform.translation_ = effectPos;
+
+		// GameSceneの生成関数を呼ぶ
+		gameScene_->CreateHitEffect(tempTransform);
 	}
 
 }

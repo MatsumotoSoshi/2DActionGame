@@ -10,6 +10,7 @@
 #include "Collision.h"
 #include "DeathParticles.h"
 #include "Fade.h"
+#include "HitEffect.h"
 
 class GameScene {
 public:
@@ -64,6 +65,9 @@ public:
 	// フェード時間
 	float fadeDuration_ = 2.0f;
 
+	// エフェクトを生成
+	void CreateHitEffect(const KamataEngine::WorldTransform& worldTransform);
+
 private:
 	KamataEngine::Model* modelBlock_ = nullptr;
 	KamataEngine::Camera camera_;
@@ -81,10 +85,12 @@ private:
 	std::list<Enemy*> enemies_;
 	DeathParticles* deathParticles_ = nullptr;
 	Fade* fade_ = nullptr;
+	std::list<HitEffect*> hitEffects_;
 
 	KamataEngine::Model* modelSkydome_ = nullptr;
 	KamataEngine::Model* modelPlayer_ = nullptr;
 	KamataEngine::Model* modelEnemy_ = nullptr;
 	KamataEngine::Model* modelDeathParticles_ = nullptr;
 	KamataEngine::Model* modelAttack_ = nullptr;
+	KamataEngine::Model* modelHitEffect_ = nullptr;
 };

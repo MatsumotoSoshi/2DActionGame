@@ -16,3 +16,7 @@ inline KamataEngine::Vector3& operator-=(KamataEngine::Vector3& a, const KamataE
 	a.z -= b.z;
 	return a;
 }
+
+inline KamataEngine::Vector3 operator/(const KamataEngine::Vector3& v, float s) { 
+	return {v.x / s, v.y / s, v.z / s};
+}

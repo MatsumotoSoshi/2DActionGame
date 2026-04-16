@@ -25,6 +25,11 @@ void GameScene::GeneralBlocks() {
 	}
 }
 
+void GameScene::CreateHitEffect(const KamataEngine::WorldTransform& worldTransform) {
+	HitEffect* newHitEffect = HitEffect::Create(worldTransform);
+	hitEffects_.push_back(newHitEffect);
+}
+
 void GameScene::Initialize() { 
 	phase_ = Phase::kFadeIn;
 
@@ -40,6 +45,9 @@ void GameScene::Initialize() {
 	modelEnemy_ = Model::CreateFromOBJ("enemy");
 	modelDeathParticles_ = Model::CreateFromOBJ("deathParticle");
 	modelAttack_ = Model::CreateFromOBJ("hit_effect");
+	modelHitEffect_ = Model::CreateFromOBJ("particle");
+	HitEffect::SetModel(modelHitEffect_);
+	HitEffect::SetCamera(&camera_);
 
     // デバッグカメラ生成
     debugCamera_ = new DebugCamera(1280, 720);
@@ -63,6 +71,8 @@ void GameScene::Initialize() {
 		enemyPosition.y = 1.0f + i;
 
 		newEnemy->Initialize(modelEnemy_, &camera_, enemyPosition);
+
+		newEnemy->SetGameScene(this);
 		enemies_.push_back(newEnemy);
 	}
 
@@ -227,6 +237,11 @@ void GameScene::Update() {
 		// 自キャラの更新
 		player_.Update();
 
+		// ヒットエフェクトの更新
+		for (HitEffect* hitEffect : hitEffects_) {
+			hitEffect->Update();
+		}
+
 		// すべての当たり判定
 		CheckAllCollisions();
 
@@ -305,6 +320,7 @@ void GameScene::Draw() {
 			enemy->Draw(cameraController_.GetCamera());
 		}
 
+
 		// ブロックの描画
 		for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTransformBlocks_) {
 			for (WorldTransform* worldTransformBlock : worldTransformBlockLine) {
@@ -312,6 +328,12 @@ void GameScene::Draw() {
 					continue;
 				modelBlock_->Draw(*worldTransformBlock, cameraController_.GetCamera());
 			}
+		}
+
+		
+		// ヒットエフェクトの描画
+		for (HitEffect* hitEffect : hitEffects_) {
+			hitEffect->Draw(cameraController_.GetCamera());
 		}
 
 		break;
@@ -385,6 +407,10 @@ GameScene::~GameScene() {
 
 	for (Enemy* enemy : enemies_) {
 		delete enemy;
+	}
+
+	for (HitEffect* hitEffect : hitEffects_) {
+		delete hitEffect;
 	}
 
 	for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTransformBlocks_) {

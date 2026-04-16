@@ -3,8 +3,10 @@
 #include "WorldMatrix.h"
 #include "AABB.h"
 #include "player.h"
+#include "GameScene.h"
 
 class Player;
+class GameScene;
 
 /// <summary>
 /// 敵
@@ -78,7 +80,7 @@ public:
 	// アニメーションタイマー
 	uint32_t animationTimer_ = 0;
 
-
+	void SetGameScene(GameScene* gameScene) { gameScene_ = gameScene; }
 
 
 	bool isCollisionDisabled_ = false;
@@ -90,4 +92,6 @@ private:
 	KamataEngine::Model* model_ = nullptr;
 	KamataEngine::Camera* camera_ = nullptr;
 	WorldMatrix worldMatrix_;
+
+	GameScene* gameScene_ = nullptr;
 };
