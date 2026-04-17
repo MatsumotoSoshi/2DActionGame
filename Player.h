@@ -2,9 +2,11 @@
 #include "KamataEngine.h"
 #include "WorldMatrix.h"
 #include "AABB.h"
+#include "Direction.h"
 
 class MapChipField;
 class Enemy;
+class ShieldEnemy;
 
 class Player {
 public:
@@ -34,9 +36,9 @@ public:
 	static inline const float kAttenuation = 0.1f;
 	static inline const float kLimitRunSpeed = 0.8f;
 
-	enum class LRDirection { kRight, kLeft };
-
 	LRDirection lrDirection_ = LRDirection::kRight;
+
+	LRDirection GetDirection() const { return lrDirection_; }
 
 	// 旋回開始時の角度
 	float turnFirstRotationY_ = 0.0f;
@@ -126,6 +128,7 @@ public:
 
 	// 衝突反応
 	void onCollision(const Enemy* enemy);
+	void onCollision(const ShieldEnemy* enemy);
 
 	// デスフラグ
 	bool isDead_ = false;
@@ -174,6 +177,7 @@ public:
 	AttackPhase attackPhase_ = AttackPhase::kCharge;
 
 	bool IsAttack() const { return behavior_ == Behavior::kAttack; }
+
 
 private:
 	KamataEngine::Model* model_ = nullptr;

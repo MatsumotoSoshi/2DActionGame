@@ -46,6 +46,7 @@ void GameScene::Initialize() {
 	modelDeathParticles_ = Model::CreateFromOBJ("deathParticle");
 	modelAttack_ = Model::CreateFromOBJ("hit_effect");
 	modelHitEffect_ = Model::CreateFromOBJ("particle");
+	modelShieldEnemy_ = Model::CreateFromOBJ("shieldEnemy");
 	HitEffect::SetModel(modelHitEffect_);
 	HitEffect::SetCamera(&camera_);
 
@@ -63,6 +64,7 @@ void GameScene::Initialize() {
 
 	player_.SetMapChipField(mapChipField_);
 
+	/*
 	// 敵
 	for (int32_t i = 0; i < 3; ++i) {
 		Enemy* newEnemy = new Enemy();
@@ -74,6 +76,20 @@ void GameScene::Initialize() {
 
 		newEnemy->SetGameScene(this);
 		enemies_.push_back(newEnemy);
+	}
+	*/
+
+	// シールド敵
+	for (int32_t i = 0; i < 1; ++i) {
+		ShieldEnemy* newEnemy = new ShieldEnemy();
+
+		Vector3 enemyPosition = mapChipField_->GetMapChipPositionByIndex(10 + i, 0);
+		enemyPosition.y = 1.0f + i;
+
+		newEnemy->Initialize(modelShieldEnemy_, &camera_, enemyPosition);
+
+		newEnemy->SetGameScene(this);
+		shieldEnemies_.push_back(newEnemy);
 	}
 
     // カメラコントローラ初期化
@@ -109,6 +125,7 @@ void GameScene::Initialize() {
 void GameScene::CheckAllCollisions() {
 	#pragma region 自キャラと敵キャラの当たり判定
 	// 自キャラと敵キャラの当たり判定
+	/*
 	{
 		// 判定対象1と2の座標
 		AABB aabb1, aabb2;
@@ -132,6 +149,35 @@ void GameScene::CheckAllCollisions() {
 
 				// 敵弾の衝突時コールバックを呼び出す
 				enemy->onCollision(&player_);
+			}
+		}
+	}
+	*/
+
+	// 自キャラとシールド敵キャラの当たり判定
+	{
+		// 判定対象1と2の座標
+		AABB aabb1, aabb2;
+
+		// 自キャラの座標
+		aabb1 = player_.GetAABB();
+
+		// 自キャラと敵弾すべての当たり判定
+		for (ShieldEnemy* shieldEnemy : shieldEnemies_) {
+			if (shieldEnemy->IsCollisionDisabled()) {
+				continue; //	コリジョン無効の敵はスキップ
+			}
+
+			// 敵弾の座標
+			aabb2 = shieldEnemy->GetAABB();
+
+			// AABB同士の交差判定
+			if (Collision::IsCollision(aabb1, aabb2)) {
+				// 自キャラの衝突時コールバックを呼び出す
+				player_.onCollision(shieldEnemy);
+
+				// 敵弾の衝突時コールバックを呼び出す
+				shieldEnemy->onCollision(&player_);
 			}
 		}
 	}
@@ -191,7 +237,7 @@ void GameScene::Update() {
 
 	// 敵の更新(複数)
 	for (Enemy* enemy : enemies_) {
-		enemy->Update();
+		//enemy->Update();
 	}
 
 	// デスフラグの立った敵を削除
@@ -199,6 +245,20 @@ void GameScene::Update() {
 		if (enemy->IsDead()) {
 			delete enemy;
 			return true; 
+		}
+		return false;
+	});
+
+	// シールド敵の更新(複数)
+	for (ShieldEnemy* shieldEnemy : shieldEnemies_) {
+		shieldEnemy->Update();
+	}
+
+	// デスフラグの立った敵を削除
+	shieldEnemies_.remove_if([](ShieldEnemy* shieldEnemy) {
+		if (shieldEnemy->IsDead()) {
+			delete shieldEnemy;
+			return true;
 		}
 		return false;
 	});
@@ -293,7 +353,12 @@ void GameScene::Draw() {
 
 		// 敵の描画(複数)
 		for (Enemy* enemy : enemies_) {
-			enemy->Draw(cameraController_.GetCamera());
+			//enemy->Draw(cameraController_.GetCamera());
+		}
+
+		// シールド敵の描画(複数)
+		for (ShieldEnemy* shieldEnemy : shieldEnemies_) {
+			shieldEnemy->Draw(cameraController_.GetCamera());
 		}
 
 		// ブロックの描画
@@ -317,9 +382,18 @@ void GameScene::Draw() {
 
 		// 敵の描画(複数)
 		for (Enemy* enemy : enemies_) {
-			enemy->Draw(cameraController_.GetCamera());
+			//enemy->Draw(cameraController_.GetCamera());
 		}
 
+		// シールド敵の描画(複数)
+		for (ShieldEnemy* shieldEnemy : shieldEnemies_) {
+			shieldEnemy->Draw(cameraController_.GetCamera());
+		}
+
+		// ヒットエフェクトの描画
+		for (HitEffect* hitEffect : hitEffects_) {
+			hitEffect->Draw(cameraController_.GetCamera());
+		}
 
 		// ブロックの描画
 		for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTransformBlocks_) {
@@ -328,12 +402,6 @@ void GameScene::Draw() {
 					continue;
 				modelBlock_->Draw(*worldTransformBlock, cameraController_.GetCamera());
 			}
-		}
-
-		
-		// ヒットエフェクトの描画
-		for (HitEffect* hitEffect : hitEffects_) {
-			hitEffect->Draw(cameraController_.GetCamera());
 		}
 
 		break;
@@ -355,7 +423,12 @@ void GameScene::Draw() {
 
 		// 敵の描画(複数)
 		for (Enemy* enemy : enemies_) {
-			enemy->Draw(cameraController_.GetCamera());
+			//enemy->Draw(cameraController_.GetCamera());
+		}
+
+		// シールド敵の描画(複数)
+		for (ShieldEnemy* shieldEnemy : shieldEnemies_) {
+			shieldEnemy->Draw(cameraController_.GetCamera());
 		}
 
 		// ブロックの描画
@@ -376,7 +449,12 @@ void GameScene::Draw() {
 
 		// 敵の描画(複数)
 		for (Enemy* enemy : enemies_) {
-			enemy->Draw(cameraController_.GetCamera());
+			//enemy->Draw(cameraController_.GetCamera());
+		}
+
+		// シールド敵の描画(複数)
+		for (ShieldEnemy* shieldEnemy : shieldEnemies_) {
+			shieldEnemy->Draw(cameraController_.GetCamera());
 		}
 
 		// ブロックの描画
@@ -404,9 +482,14 @@ GameScene::~GameScene() {
 	delete modelSkydome_;
 	delete mapChipField_;
 	delete deathParticles_;
+	delete modelShieldEnemy_;
 
 	for (Enemy* enemy : enemies_) {
 		delete enemy;
+	}
+
+	for (ShieldEnemy* shieldEnemy : shieldEnemies_) {
+		delete shieldEnemy;
 	}
 
 	for (HitEffect* hitEffect : hitEffects_) {

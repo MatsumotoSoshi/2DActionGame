@@ -166,6 +166,7 @@
     <ClCompile Include="CameraController.cpp" />
     <ClCompile Include="Collision.cpp" />
     <ClCompile Include="DeathParticles.cpp" />
+    <ClCompile Include="Direction.cpp" />
     <ClCompile Include="Easing.cpp" />
     <ClCompile Include="Enemy.cpp" />
     <ClCompile Include="Fade.cpp" />
@@ -175,6 +176,7 @@
     <ClCompile Include="MapChipField.cpp" />
     <ClCompile Include="Player.cpp" />
     <ClCompile Include="Random.cpp" />
+    <ClCompile Include="ShieldEnemy.cpp" />
     <ClCompile Include="Skydome.cpp" />
     <ClCompile Include="test.cpp" />
     <ClCompile Include="TitleScene.cpp" />
@@ -282,6 +284,7 @@
     <ClInclude Include="CameraController.h" />
     <ClInclude Include="Collision.h" />
     <ClInclude Include="DeathParticles.h" />
+    <ClInclude Include="Direction.h" />
     <ClInclude Include="Easing.h" />
     <ClInclude Include="Enemy.h" />
     <ClInclude Include="Fade.h" />
@@ -291,6 +294,7 @@
     <ClInclude Include="Operator.h" />
     <ClInclude Include="Player.h" />
     <ClInclude Include="Random.h" />
+    <ClInclude Include="ShieldEnemy.h" />
     <ClInclude Include="Skydome.h" />
     <ClInclude Include="test.h" />
     <ClInclude Include="TitleScene.h" />

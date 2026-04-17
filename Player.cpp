@@ -130,6 +130,15 @@ void Player::onCollision(const Enemy* enemy) {
 	isDead_ = true;
 }
 
+void Player::onCollision(const ShieldEnemy* enemy) {
+	if (IsAttack()) {
+		return; // 攻撃中はダメージ無効
+	}
+
+	(void)enemy;
+	isDead_ = true;
+}
+
 void Player::CollisionMapTop(CollisionMapInfo& info) {
 	// 上昇あり？
 	if (info.move_.y <= 0) {

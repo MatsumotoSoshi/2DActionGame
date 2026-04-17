@@ -11,6 +11,7 @@
 #include "DeathParticles.h"
 #include "Fade.h"
 #include "HitEffect.h"
+#include "ShieldEnemy.h"
 
 class GameScene {
 public:
@@ -86,6 +87,7 @@ private:
 	DeathParticles* deathParticles_ = nullptr;
 	Fade* fade_ = nullptr;
 	std::list<HitEffect*> hitEffects_;
+	std::list<ShieldEnemy*> shieldEnemies_;
 
 	KamataEngine::Model* modelSkydome_ = nullptr;
 	KamataEngine::Model* modelPlayer_ = nullptr;
@@ -93,4 +95,5 @@ private:
 	KamataEngine::Model* modelDeathParticles_ = nullptr;
 	KamataEngine::Model* modelAttack_ = nullptr;
 	KamataEngine::Model* modelHitEffect_ = nullptr;
+	KamataEngine::Model* modelShieldEnemy_ = nullptr;
 };
