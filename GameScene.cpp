@@ -30,6 +30,11 @@ void GameScene::CreateHitEffect(const KamataEngine::WorldTransform& worldTransfo
 	hitEffects_.push_back(newHitEffect);
 }
 
+void GameScene::CreateGuardEffect(const KamataEngine::WorldTransform& worldTransform) {
+	GuardEffect* newHitEffect = GuardEffect::Create(worldTransform);
+	guardEffects_.push_back(newHitEffect);
+}
+
 void GameScene::Initialize() { 
 	phase_ = Phase::kFadeIn;
 
@@ -49,6 +54,9 @@ void GameScene::Initialize() {
 	modelShieldEnemy_ = Model::CreateFromOBJ("shieldEnemy");
 	HitEffect::SetModel(modelHitEffect_);
 	HitEffect::SetCamera(&camera_);
+	modelGuardEffect_ = Model::CreateFromOBJ("ring");
+	GuardEffect::SetModel(modelGuardEffect_);
+	GuardEffect::SetCamera(&camera_);
 
     // デバッグカメラ生成
     debugCamera_ = new DebugCamera(1280, 720);
@@ -249,6 +257,14 @@ void GameScene::Update() {
 		return false;
 	});
 
+	hitEffects_.remove_if([](HitEffect* effect) {
+		if (effect->IsDead()) {
+			delete effect;
+			return true;
+		}
+		return false;
+	});
+
 	// シールド敵の更新(複数)
 	for (ShieldEnemy* shieldEnemy : shieldEnemies_) {
 		shieldEnemy->Update();
@@ -258,6 +274,14 @@ void GameScene::Update() {
 	shieldEnemies_.remove_if([](ShieldEnemy* shieldEnemy) {
 		if (shieldEnemy->IsDead()) {
 			delete shieldEnemy;
+			return true;
+		}
+		return false;
+	});
+
+	guardEffects_.remove_if([](GuardEffect* effect) {
+		if (effect->IsDead()) {
+			delete effect;
 			return true;
 		}
 		return false;
@@ -300,6 +324,11 @@ void GameScene::Update() {
 		// ヒットエフェクトの更新
 		for (HitEffect* hitEffect : hitEffects_) {
 			hitEffect->Update();
+		}
+
+		// ガードエフェクトの更新
+		for (GuardEffect* guardEffect : guardEffects_) {
+			guardEffect->Update();
 		}
 
 		// すべての当たり判定
@@ -393,6 +422,11 @@ void GameScene::Draw() {
 		// ヒットエフェクトの描画
 		for (HitEffect* hitEffect : hitEffects_) {
 			hitEffect->Draw(cameraController_.GetCamera());
+		}
+
+		// ガードエフェクトの描画
+		for (GuardEffect* guardEffect : guardEffects_) {
+			guardEffect->Draw(cameraController_.GetCamera());
 		}
 
 		// ブロックの描画

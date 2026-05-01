@@ -5,6 +5,7 @@
 #include "player.h"
 #include "GameScene.h"
 #include "Direction.h"
+#include "GuardEffect.h"
 
 class Player;
 class GameScene;
@@ -59,7 +60,7 @@ public:
 	AABB GetAABB();
 
 	// 衝突反応
-	void onCollision(const Player* player);
+	void onCollision(Player* player);
 
 	// デスフラグ
 	bool isDead_ = false;
@@ -70,6 +71,7 @@ public:
 	enum class Behavior {
 		kWalk,         // 歩行
 	    kDeath,        // デス演出
+		kStop,         // 停止
 	};
 
 	// ふるまい

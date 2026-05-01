@@ -131,8 +131,8 @@ void Player::onCollision(const Enemy* enemy) {
 }
 
 void Player::onCollision(const ShieldEnemy* enemy) {
-	if (IsAttack()) {
-		return; // 攻撃中はダメージ無効
+	if (IsAttack() || behavior_ == Behavior::kKnockback) {
+		return;
 	}
 
 	(void)enemy;
@@ -432,6 +432,7 @@ void Player::CollisionWall(const CollisionMapInfo& info) {
 }
 
 void Player::BehaviorRootInitialize() { 
+	worldTransform_.scale_ = {1.0f, 1.0f, 1.0f};
 }
 
 void Player::BehaviorAttackInitialize() {
@@ -440,6 +441,25 @@ void Player::BehaviorAttackInitialize() {
 	velocity_ = Vector3{0, 0, 0};
 
 	attackPhase_ = AttackPhase::kCharge;
+}
+
+void Player::BehaviorKnockBackInitialize() {
+	knockBackParameter_ = 0;
+	knockBackPhase_ = KnockBackPhase::kBack;
+
+	worldTransform_.scale_ = {1.0f, 1.0f, 1.0f};
+
+	// ノックバック方向
+	float powerX = 0.5f;
+	float powerY = 0.3f;
+
+	if (lrDirection_ == LRDirection::kRight) {
+		velocity_.x = -powerX;
+	} else {
+		velocity_.x = powerX;
+	}
+
+	velocity_.y = powerY;
 }
 
 void Player::BehaviorRootUpdate() {
@@ -608,9 +628,49 @@ void Player::BehaviorAttackUpdate(CollisionMapInfo& info) {
 	worldMatrix_.Update(worldTransformAttack_);
 }
 
+void Player::BehaviorKnockBackUpdate() {
+	knockBackParameter_++;
+
+	// 重力
+	if (!onGround_) {
+		velocity_.y -= kGravityAcceleration_;
+		velocity_.y = std::max(velocity_.y, -kLimitFallSpeed_);
+	}
+
+	// 減衰（これで自然に止まる）
+	velocity_.x *= 0.9f;
+
+	// 衝突処理（Rootと同じ）
+	CollisionMapInfo info;
+	info.move_ = velocity_;
+
+	CollisionMapTop(info);
+	CollisionMapBottom(info);
+	CollisionMapRight(info);
+	CollisionMapLeft(info);
+
+	MoveResult(info);
+	CollisionCeiling(info);
+	GroundTransition(info);
+	CollisionWall(info);
+
+	// 止まったら終了
+	if (std::abs(velocity_.x) < 0.05f && onGround_) {
+		behaviorRequest_ = Behavior::kRoot;
+	}
+
+	worldMatrix_.Update(worldTransform_);
+}
+
 void Player::Update() { 
 	// 衝突情報を初期化
 	CollisionMapInfo collisionMapInfo;
+
+	if (isKnockBackRequested_) {
+		behaviorRequest_ = Behavior::kKnockback;	
+		// フラグをリセット
+		isKnockBackRequested_ = false;
+	}
 
 	if (behaviorRequest_ != Behavior::kUnknown) {
 		// ふるまいを変更する
@@ -625,6 +685,11 @@ void Player::Update() {
 
 		case Behavior::kAttack:
 			BehaviorAttackInitialize();
+
+			break;
+
+		case Behavior::kKnockback:
+			BehaviorKnockBackInitialize();
 
 			break;
 		}
@@ -643,6 +708,10 @@ void Player::Update() {
 		// 攻撃行動
 	case Behavior::kAttack:
 		BehaviorAttackUpdate(collisionMapInfo);
+		break;
+
+	case Behavior::kKnockback:
+		BehaviorKnockBackUpdate();
 		break;
 	}
 

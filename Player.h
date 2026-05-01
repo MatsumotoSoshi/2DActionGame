@@ -145,6 +145,7 @@ public:
 	enum class Behavior { 
 		kRoot,        // 通常状態
 		kAttack,      // 攻撃中
+		kKnockback,   // ノックバック
 		kUnknown      // 不明
 	};
 
@@ -178,6 +179,26 @@ public:
 
 	bool IsAttack() const { return behavior_ == Behavior::kAttack; }
 
+	enum class KnockBackPhase {
+		kBack,         // 吹き飛ばし 
+		kStop          // 停止
+	};
+
+	KnockBackPhase knockBackPhase_ = KnockBackPhase::kBack;
+
+	// ノックバックの経過時間カウンター
+	uint32_t knockBackParameter_ = 0;
+
+	// ノックバックリクエストフラグ
+	bool isKnockBackRequested_ = false;
+
+	void RequestKnockBack() { isKnockBackRequested_ = true; }
+
+	// ノックバック初期化
+	void BehaviorKnockBackInitialize();
+
+	// ノックバック更新
+	void BehaviorKnockBackUpdate();
 
 private:
 	KamataEngine::Model* model_ = nullptr;

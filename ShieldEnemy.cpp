@@ -39,7 +39,7 @@ AABB ShieldEnemy::GetAABB() {
 	return aabb;
 }
 
-void ShieldEnemy::onCollision(const Player* player) { 
+void ShieldEnemy::onCollision(Player* player) { 
 	// 敵がやられているならなにもしない
 	if (behavior_ == Behavior::kDeath) {
 		return;
@@ -49,6 +49,14 @@ void ShieldEnemy::onCollision(const Player* player) {
 	if (player->IsAttack()) {
 		// 前方であればガード成功
 		if (player->GetDirection() != lrDirection_) {
+			gameScene_->CreateGuardEffect(worldTransform_);
+
+			// playerノックバック
+			player->RequestKnockBack();
+
+			// 敵は停止
+			behaviorRequest_ = Behavior::kStop; 
+
 			return; // 正面なのでガード
 		}
 
@@ -76,6 +84,10 @@ void ShieldEnemy::Update() {
 		case Behavior::kDeath:
 			animationTimer_ = 0;
 			break;
+
+		case Behavior::kStop:
+			animationTimer_ = 0;
+			break;
 		}
 	}
 
@@ -90,7 +102,10 @@ void ShieldEnemy::Update() {
 		// 回転アニメーション
 		float param = std::sin(walkTimmer_ * std::numbers::pi_v<float> * 2.0f / kWalkMotionCycle);
 		float degree = kWalkMotionAngleStart + kWalkMotionAngleEnd * (param + 1.0f) / 2.0f;
-		worldTransform_.rotation_.x = degree * std::numbers::pi_v<float> / 180.0f;
+
+		float base = -std::numbers::pi_v<float> / 2.0f; // 左向き
+
+		worldTransform_.rotation_.y = base + degree * std::numbers::pi_v<float> / 180.0f;
 
 		// ワールド行列を更新
 		worldMatrix_.Update(worldTransform_);
@@ -124,6 +139,45 @@ void ShieldEnemy::Update() {
 		if (animationTimer_ > deathTime) {
 			isDead_ = true;
 		}
+
+		break;
+	}
+     
+	case Behavior::kStop: {
+		animationTimer_++;
+
+		float t = static_cast<float>(animationTimer_) / 30.0f;
+		t = std::clamp(t, 0.0f, 1.0f);
+
+		// のけぞり
+		float angle = 20.0f * std::numbers::pi_v<float> / 180.0f;
+
+		float recoil;
+		if (t < 0.5f) {
+			// 倒れる
+			recoil = Easing::EaseOut(t * 2.0f, 0.0f, angle);
+		} else {
+			// 戻る
+			recoil = Easing::EaseIn((t - 0.5f) * 2.0f, angle, 0.0f);
+		}
+
+		// 進行方向と逆に傾ける
+		if (lrDirection_ == LRDirection::kLeft) {
+			worldTransform_.rotation_.x = -recoil;
+		} else {
+			worldTransform_.rotation_.x = -recoil;
+		}
+
+		if (animationTimer_ > 30) {
+			behaviorRequest_ = Behavior::kWalk;
+			velocity_ = {-kWalkSpeed, 0, 0};
+
+			// 回転リセット
+			worldTransform_.rotation_.x = 0.0f;
+		}
+
+		worldMatrix_.Update(worldTransform_);
+		break;
 	}
 	}
 }

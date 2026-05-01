@@ -12,6 +12,7 @@
 #include "Fade.h"
 #include "HitEffect.h"
 #include "ShieldEnemy.h"
+#include "GuardEffect.h"
 
 class GameScene {
 public:
@@ -66,8 +67,11 @@ public:
 	// フェード時間
 	float fadeDuration_ = 2.0f;
 
-	// エフェクトを生成
+	// ヒットエフェクトを生成
 	void CreateHitEffect(const KamataEngine::WorldTransform& worldTransform);
+
+	// ガードエフェクトを生成
+	void CreateGuardEffect(const KamataEngine::WorldTransform& worldTransform);
 
 private:
 	KamataEngine::Model* modelBlock_ = nullptr;
@@ -88,6 +92,7 @@ private:
 	Fade* fade_ = nullptr;
 	std::list<HitEffect*> hitEffects_;
 	std::list<ShieldEnemy*> shieldEnemies_;
+	std::list<GuardEffect*> guardEffects_;
 
 	KamataEngine::Model* modelSkydome_ = nullptr;
 	KamataEngine::Model* modelPlayer_ = nullptr;
@@ -96,4 +101,5 @@ private:
 	KamataEngine::Model* modelAttack_ = nullptr;
 	KamataEngine::Model* modelHitEffect_ = nullptr;
 	KamataEngine::Model* modelShieldEnemy_ = nullptr;
+	KamataEngine::Model* modelGuardEffect_ = nullptr;
 };
