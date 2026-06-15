@@ -5,12 +5,24 @@
 #include <math/Vector3.h>
 
 enum class MapChipType { 
-	kBlank,
-	kBlock
+	kBlank,  // 空白
+	kBlock,  // ブロック
+	kPlayer, // プレイヤー
+	kEnemy,  // 敵
+};
+
+struct MapChipDataUnit {
+	MapChipType type;  // マップチップの種類
+	uint8_t subID;     // サブID
 };
 
 struct MapChipData {
-	std::vector<std::vector<MapChipType>> data;
+	std::vector<std::vector<MapChipDataUnit>> data;
+};
+
+enum MapChipCharIndex {
+	kChipType = 0,   // マップチップタイプ
+	kChipSubID = 1,  // タイプごとのサブID
 };
 
 class MapChipField
@@ -44,7 +56,7 @@ public:
 
 	Rect GetRectByIndex(uint32_t xIndex, uint32_t yIndex);
 
-	
+	uint8_t GetMapChipSubIDByIndex(uint32_t xIndex, uint32_t yIndex);
 
 private:
 	static inline const float kBlockWidth = 1.0f;

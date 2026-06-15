@@ -5,7 +5,7 @@
 #include "Direction.h"
 
 class MapChipField;
-class Enemy;
+class WalkEnemy;
 class ShieldEnemy;
 
 class Player {
@@ -127,7 +127,7 @@ public:
 	AABB GetAABB();
 
 	// 衝突反応
-	void onCollision(const Enemy* enemy);
+	void onCollision(const WalkEnemy* enemy);
 	void onCollision(const ShieldEnemy* enemy);
 
 	// デスフラグ

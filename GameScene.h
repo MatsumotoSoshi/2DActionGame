@@ -6,7 +6,7 @@
 #include "WorldMatrix.h"
 #include "MapChipField.h"
 #include "CameraController.h"
-#include "Enemy.h"
+#include "WalkEnemy.h"
 #include "Collision.h"
 #include "DeathParticles.h"
 #include "Fade.h"
@@ -37,7 +37,7 @@ public:
 	/// </summary>
 	~GameScene();
 
-	void GeneralBlocks();
+	void GenerateFieldObjects();
 
 	// すべての当たり判定を行う
 	void CheckAllCollisions();
@@ -83,11 +83,11 @@ private:
 	KamataEngine::DebugCamera* debugCamera_ = nullptr;
 
 	Skydome skydome_;
-	Player player_;
+	Player* player_ = nullptr;
 	WorldMatrix worldMatrix_;
 	MapChipField* mapChipField_;
 	CameraController cameraController_;
-	std::list<Enemy*> enemies_;
+	std::list<WalkEnemy*> enemies_;
 	DeathParticles* deathParticles_ = nullptr;
 	Fade* fade_ = nullptr;
 	std::list<HitEffect*> hitEffects_;

@@ -121,7 +121,7 @@ AABB Player::GetAABB() {
 	return aabb;
 }
 
-void Player::onCollision(const Enemy* enemy) { 
+void Player::onCollision(const WalkEnemy* enemy) { 
 	if (IsAttack()) {
 		return;     // 攻撃中はダメージ無効
 	}

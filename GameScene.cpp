@@ -1,7 +1,7 @@
 #include "GameScene.h"
 using namespace KamataEngine;
 
-void GameScene::GeneralBlocks() { 
+void GameScene::GenerateFieldObjects() {
 	uint32_t numBlockVirtical = mapChipField_->GetNumBlockVirtical();
 	uint32_t numBlockHorizontal = mapChipField_->GetNumBlockHorizontal();
 
@@ -9,17 +9,60 @@ void GameScene::GeneralBlocks() {
 	// 列数を設定（縦方向のブロック数）
 	worldTransformBlocks_.resize(numBlockVirtical);
 	for (uint32_t i = 0; i < numBlockVirtical; ++i) {
-	    // １列の要素数を設定（横方向のブロック数）
+		// １列の要素数を設定（横方向のブロック数）
 		worldTransformBlocks_[i].resize(numBlockHorizontal);
 	}
 
 	for (uint32_t i = 0; i < numBlockVirtical; ++i) {
 		for (uint32_t j = 0; j < numBlockHorizontal; ++j) {
-			if (mapChipField_->GetMapChipTypeByIndex(j, i) == MapChipType::kBlock) {
-				WorldTransform* worldTransform = new WorldTransform();
+
+			MapChipType mapChipType = mapChipField_->GetMapChipTypeByIndex(j, i);
+
+			switch (mapChipType) {
+			case MapChipType::kBlock: {
+				WorldTransform* worldTransform = new WorldTransform;
 				worldTransform->Initialize();
 				worldTransformBlocks_[i][j] = worldTransform;
 				worldTransformBlocks_[i][j]->translation_ = mapChipField_->GetMapChipPositionByIndex(j, i);
+				break;
+			}
+			case MapChipType::kPlayer: {
+				assert(player_ == nullptr && "自キャラを二重に配置使用としています");
+				// 自キャラを配置
+
+				player_ = new Player();
+				Vector3 playerPosition = mapChipField_->GetMapChipPositionByIndex(j, i);
+				
+				player_->Initialize(modelPlayer_, modelAttack_, &cameraController_.GetCamera(), playerPosition);
+
+				player_->SetMapChipField(mapChipField_);
+				break;
+			}
+			case MapChipType::kEnemy: {
+				uint8_t subID = mapChipField_->GetMapChipSubIDByIndex(j, i);
+				switch (subID) {
+				case 0: {
+					WalkEnemy* newEnemy = new WalkEnemy();
+					Vector3 enemyPosition = mapChipField_->GetMapChipPositionByIndex(j, i);
+					newEnemy->Initialize(modelEnemy_, &camera_, enemyPosition);
+					newEnemy->SetGameScene(this);
+					enemies_.push_back(newEnemy);
+					break;
+				}
+				case 1: {
+					ShieldEnemy* newEnemy = new ShieldEnemy();
+					Vector3 enemyPosition = mapChipField_->GetMapChipPositionByIndex(j, i);
+					newEnemy->Initialize(modelShieldEnemy_, &camera_, enemyPosition);
+					newEnemy->SetGameScene(this);
+					shieldEnemies_.push_back(newEnemy);
+					break;
+				}
+				default:
+					break;
+				}
+			}
+			default:
+				break;
 			}
 		}
 	}
@@ -64,45 +107,12 @@ void GameScene::Initialize() {
     mapChipField_ = new MapChipField;
     mapChipField_->LoadMapChipCsv("Resources/blocks.csv");
 
-    // プレイヤー初期位置
-    Vector3 playerPosition = mapChipField_->GetMapChipPositionByIndex(2, 0);
-    playerPosition.y = 1.0f;
+    GenerateFieldObjects();
 
-    player_.Initialize(modelPlayer_, modelAttack_, &cameraController_.GetCamera(), playerPosition);
-
-	player_.SetMapChipField(mapChipField_);
-
-	/*
-	// 敵
-	for (int32_t i = 0; i < 3; ++i) {
-		Enemy* newEnemy = new Enemy();
-
-		Vector3 enemyPosition = mapChipField_->GetMapChipPositionByIndex(10 + i, 0);
-		enemyPosition.y = 1.0f + i;
-
-		newEnemy->Initialize(modelEnemy_, &camera_, enemyPosition);
-
-		newEnemy->SetGameScene(this);
-		enemies_.push_back(newEnemy);
-	}
-	*/
-
-	// シールド敵
-	for (int32_t i = 0; i < 1; ++i) {
-		ShieldEnemy* newEnemy = new ShieldEnemy();
-
-		Vector3 enemyPosition = mapChipField_->GetMapChipPositionByIndex(10 + i, 0);
-		enemyPosition.y = 1.0f + i;
-
-		newEnemy->Initialize(modelShieldEnemy_, &camera_, enemyPosition);
-
-		newEnemy->SetGameScene(this);
-		shieldEnemies_.push_back(newEnemy);
-	}
 
     // カメラコントローラ初期化
     cameraController_.Initialize();
-    cameraController_.SetTarget(&player_);
+    cameraController_.SetTarget(player_);
     cameraController_.Reset();
 
 	// 移動範囲の指定
@@ -127,22 +137,20 @@ void GameScene::Initialize() {
 	fade_->Initialize();
 	fade_->Start(Fade::Status::FadeIn, fadeDuration_);
 
-    GeneralBlocks();
 }
 
 void GameScene::CheckAllCollisions() {
 	#pragma region 自キャラと敵キャラの当たり判定
 	// 自キャラと敵キャラの当たり判定
-	/*
 	{
 		// 判定対象1と2の座標
 		AABB aabb1, aabb2;
 	
 		// 自キャラの座標
-		aabb1 = player_.GetAABB();
+		aabb1 = player_->GetAABB();
 
 		// 自キャラと敵弾すべての当たり判定
-		for (Enemy *enemy : enemies_) {
+		for (WalkEnemy *enemy : enemies_) {
 			if (enemy->IsCollisionDisabled()) {
 				continue;   //	コリジョン無効の敵はスキップ
 			}
@@ -153,14 +161,13 @@ void GameScene::CheckAllCollisions() {
 			// AABB同士の交差判定
 			if (Collision::IsCollision(aabb1, aabb2)) {
 				// 自キャラの衝突時コールバックを呼び出す
-				player_.onCollision(enemy);
+				player_->onCollision(enemy);
 
 				// 敵弾の衝突時コールバックを呼び出す
-				enemy->onCollision(&player_);
+				enemy->onCollision(player_);
 			}
 		}
 	}
-	*/
 
 	// 自キャラとシールド敵キャラの当たり判定
 	{
@@ -168,7 +175,7 @@ void GameScene::CheckAllCollisions() {
 		AABB aabb1, aabb2;
 
 		// 自キャラの座標
-		aabb1 = player_.GetAABB();
+		aabb1 = player_->GetAABB();
 
 		// 自キャラと敵弾すべての当たり判定
 		for (ShieldEnemy* shieldEnemy : shieldEnemies_) {
@@ -182,10 +189,10 @@ void GameScene::CheckAllCollisions() {
 			// AABB同士の交差判定
 			if (Collision::IsCollision(aabb1, aabb2)) {
 				// 自キャラの衝突時コールバックを呼び出す
-				player_.onCollision(shieldEnemy);
+				player_->onCollision(shieldEnemy);
 
 				// 敵弾の衝突時コールバックを呼び出す
-				shieldEnemy->onCollision(&player_);
+				shieldEnemy->onCollision(player_);
 			}
 		}
 	}
@@ -219,11 +226,11 @@ void GameScene::ChangePhase() {
 	switch (phase_) {
 	case Phase::kPlay:
 		// ゲームプレイフェーズの処理
-		if (player_.isDead_) {
+		if (player_->isDead_) {
 			// 死亡演出フェーズに切り替え
 			phase_ = Phase::kDeath;
 			// 自キャラの座標を取得
-			Vector3 deathParticlePosition = player_.GetWorldPosition();
+			Vector3 deathParticlePosition = player_->GetWorldPosition();
 
 			// 自キャラ座標にデスパーティクルを発生、初期化
 			deathParticles_ = new DeathParticles;
@@ -244,12 +251,12 @@ void GameScene::Update() {
 	skydome_.Update();
 
 	// 敵の更新(複数)
-	for (Enemy* enemy : enemies_) {
-		//enemy->Update();
+	for (WalkEnemy* enemy : enemies_) {
+		enemy->Update();
 	}
 
 	// デスフラグの立った敵を削除
-	enemies_.remove_if([](Enemy* enemy) {
+	enemies_.remove_if([](WalkEnemy* enemy) {
 		if (enemy->IsDead()) {
 			delete enemy;
 			return true; 
@@ -304,7 +311,7 @@ void GameScene::Update() {
 	case Phase::kFadeIn:
 
 		// 自キャラの更新
-		player_.Update();
+		player_->Update();
 
 		// フェードインの処理
 		fade_->Update();
@@ -319,7 +326,7 @@ void GameScene::Update() {
 		// ゲームフェーズの処理
 		
 		// 自キャラの更新
-		player_.Update();
+		player_->Update();
 
 		// ヒットエフェクトの更新
 		for (HitEffect* hitEffect : hitEffects_) {
@@ -354,7 +361,7 @@ void GameScene::Update() {
 		case Phase::kFadeOut:
 
 		// 自キャラの更新
-		player_.Update();
+		player_->Update();
 
 		// フェードアウトの処理
 		fade_->Update();
@@ -378,11 +385,11 @@ void GameScene::Draw() {
 		skydome_.Draw();
 
 		// 自キャラの描画
-		player_.Draw(cameraController_.GetCamera());
+		player_->Draw(cameraController_.GetCamera());
 
 		// 敵の描画(複数)
-		for (Enemy* enemy : enemies_) {
-			//enemy->Draw(cameraController_.GetCamera());
+		for (WalkEnemy* enemy : enemies_) {
+			enemy->Draw(cameraController_.GetCamera());
 		}
 
 		// シールド敵の描画(複数)
@@ -407,11 +414,11 @@ void GameScene::Draw() {
 		skydome_.Draw();
 
 		// 自キャラの描画
-		player_.Draw(cameraController_.GetCamera());
+		player_->Draw(cameraController_.GetCamera());
 
 		// 敵の描画(複数)
-		for (Enemy* enemy : enemies_) {
-			//enemy->Draw(cameraController_.GetCamera());
+		for (WalkEnemy* enemy : enemies_) {
+			enemy->Draw(cameraController_.GetCamera());
 		}
 
 		// シールド敵の描画(複数)
@@ -456,8 +463,8 @@ void GameScene::Draw() {
 		}
 
 		// 敵の描画(複数)
-		for (Enemy* enemy : enemies_) {
-			//enemy->Draw(cameraController_.GetCamera());
+		for (WalkEnemy* enemy : enemies_) {
+			enemy->Draw(cameraController_.GetCamera());
 		}
 
 		// シールド敵の描画(複数)
@@ -482,8 +489,8 @@ void GameScene::Draw() {
 		skydome_.Draw();
 
 		// 敵の描画(複数)
-		for (Enemy* enemy : enemies_) {
-			//enemy->Draw(cameraController_.GetCamera());
+		for (WalkEnemy* enemy : enemies_) {
+			enemy->Draw(cameraController_.GetCamera());
 		}
 
 		// シールド敵の描画(複数)
@@ -518,7 +525,7 @@ GameScene::~GameScene() {
 	delete deathParticles_;
 	delete modelShieldEnemy_;
 
-	for (Enemy* enemy : enemies_) {
+	for (WalkEnemy* enemy : enemies_) {
 		delete enemy;
 	}
 

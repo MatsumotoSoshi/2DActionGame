@@ -1,12 +1,12 @@
 #define NOMINMAX
-#include "Enemy.h"
+#include "WalkEnemy.h"
 #include <numbers>
 #include "Operator.h"
 #include "Easing.h"
 #include <algorithm>
 using namespace KamataEngine;
 
-void Enemy::Initialize(Model* model, Camera* camera, const Vector3& position) { 
+void WalkEnemy::Initialize(Model* model, Camera* camera, const Vector3& position) { 
 	model_ = model;
 
 	worldTransform_.Initialize();
@@ -19,7 +19,7 @@ void Enemy::Initialize(Model* model, Camera* camera, const Vector3& position) {
 	walkTimmer_ = 0.0f;
 }
 
-Vector3 Enemy::GetWorldPosition() {
+Vector3 WalkEnemy::GetWorldPosition() {
 	Vector3 worldPos;
 
 	worldPos.x = worldTransform_.matWorld_.m[3][0];
@@ -29,7 +29,7 @@ Vector3 Enemy::GetWorldPosition() {
 	return worldPos;
 }
 
-AABB Enemy::GetAABB() {
+AABB WalkEnemy::GetAABB() {
 	Vector3 worldPos = GetWorldPosition();
 	AABB aabb;
 
@@ -39,7 +39,7 @@ AABB Enemy::GetAABB() {
 	return aabb;
 }
 
-void Enemy::onCollision(const Player* player) { 
+void WalkEnemy::onCollision(const Player* player) { 
 	// 敵がやられているならなにもしない
 	if (behavior_ == Behavior::kDeath) {
 		return;
@@ -62,7 +62,7 @@ void Enemy::onCollision(const Player* player) {
 
 }
 
-void Enemy::Update() {
+void WalkEnemy::Update() {
 	if (behavior_ != behaviorRequest_) {
 		behavior_ = behaviorRequest_;
 
@@ -123,6 +123,6 @@ void Enemy::Update() {
 	}
 }
 
-void Enemy::Draw(const Camera& camera) {
+void WalkEnemy::Draw(const Camera& camera) {
 	model_->Draw(worldTransform_, camera); 
 }

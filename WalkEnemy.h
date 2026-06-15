@@ -11,7 +11,7 @@ class GameScene;
 /// <summary>
 /// 敵
 /// </summary>
-class Enemy {
+class WalkEnemy {
 public:
 	/// <summary>
 	/// 初期化
