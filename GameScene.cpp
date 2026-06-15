@@ -107,11 +107,11 @@ void GameScene::Initialize() {
     mapChipField_ = new MapChipField;
     mapChipField_->LoadMapChipCsv("Resources/blocks.csv");
 
-    GenerateFieldObjects();
-
 
     // カメラコントローラ初期化
     cameraController_.Initialize();
+	GenerateFieldObjects();
+
     cameraController_.SetTarget(player_);
     cameraController_.Reset();
 
@@ -370,6 +370,10 @@ void GameScene::Update() {
 			isFinished_ = true; 
 		}
 		break;
+	}
+
+	if (Input::GetInstance()->TriggerKey(DIK_R)) {
+		reloadRequested_ = true;
 	}
 
 }

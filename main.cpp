@@ -44,6 +44,13 @@ void ChangeScene() {
 			// 新シーンの生成と初期化
 			titleScene = new TitleScene();
 			titleScene->Initialize();
+		} else if (gameScene && gameScene->IsReloadRequested()) {
+			// ホットリロード: GameScene を丸ごと作り直す
+			delete gameScene;
+			gameScene = nullptr;
+
+			gameScene = new GameScene();
+			gameScene->Initialize();
 		}
 		break;
 	}
@@ -86,8 +93,6 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	scene = Scene::kTitle;
 	titleScene = new TitleScene();
 	titleScene->Initialize();
-	gameScene = new GameScene();
-	gameScene->Initialize();
 
 	// メインループ
 	while (true) {
@@ -95,7 +100,6 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 		if (Update()) {
 			break;
 		}
-
 
 		// シーン切り替え		
 		ChangeScene();

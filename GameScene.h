@@ -73,6 +73,12 @@ public:
 	// ガードエフェクトを生成
 	void CreateGuardEffect(const KamataEngine::WorldTransform& worldTransform);
 
+	// リロード要求フラグ
+	bool reloadRequested_ = false;
+
+	// リロード要求フラグのgetter
+	bool IsReloadRequested() const { return reloadRequested_; }
+
 private:
 	KamataEngine::Model* modelBlock_ = nullptr;
 	KamataEngine::Camera camera_;
