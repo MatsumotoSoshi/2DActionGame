@@ -2,6 +2,9 @@
 #include "KamataEngine.h"
 #include "GameScene.h"
 #include "TitleScene.h"
+#include "StageManager.h"
+#include <fstream>  
+#include <string>
 using namespace KamataEngine;
 
 // シーン(型)
@@ -17,6 +20,25 @@ enum class Scene {
 Scene scene = Scene::kUnKnown;
 TitleScene* titleScene = nullptr;
 GameScene* gameScene = nullptr;
+StageManager* stageManager = nullptr;
+
+void LoadDebugSettings() {
+	// デバッグ設定ファイルのパス
+	const std::string debugFilePath = "DebugSettings.ini";
+	std::ifstream file(debugFilePath);
+
+	// ファイルを開く
+	if (file.is_open()) {
+		std::string targetStage;
+		if (std::getline(file, targetStage)) {
+			// ステージを設定
+			if (targetStage == "InitialStage") {
+				stageManager->SetCurrentStageIndexByName(targetStage);
+			}
+		}
+		file.close();
+	}
+}
 
 void ChangeScene() {
 	switch (scene) { 
@@ -29,7 +51,7 @@ void ChangeScene() {
 			titleScene = nullptr;
 			// 新シーンの生成と初期化
 			gameScene = new GameScene();
-			gameScene->Initialize();
+			gameScene->Initialize(stageManager);
 		}
 
 		break;
@@ -50,7 +72,7 @@ void ChangeScene() {
 			gameScene = nullptr;
 
 			gameScene = new GameScene();
-			gameScene->Initialize();
+			gameScene->Initialize(stageManager);
 		}
 		break;
 	}
@@ -94,6 +116,13 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	titleScene = new TitleScene();
 	titleScene->Initialize();
 
+	// デバッグ設定ファイルを読み込み
+	LoadDebugSettings();
+
+	// クラスインスタンスの生成
+	stageManager = new StageManager();
+	stageManager->LoadStageData();
+
 	// メインループ
 	while (true) {
 		// エンジンの更新
@@ -121,6 +150,8 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	// ゲームシーンの解放
 	delete titleScene;
 	delete gameScene;
+	delete stageManager;
+
 	// nullptrの代入
 	titleScene = nullptr;
 	gameScene = nullptr;

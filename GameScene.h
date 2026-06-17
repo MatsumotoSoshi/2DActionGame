@@ -14,13 +14,15 @@
 #include "ShieldEnemy.h"
 #include "GuardEffect.h"
 
+class StageManager;
+
 class GameScene {
 public:
 
 	/// <summary>
 	/// 
 	/// </summary>
-	void Initialize();
+	void Initialize(StageManager* stageDataManager);
 
 	/// <summary>
 	/// 
@@ -99,6 +101,10 @@ private:
 	std::list<HitEffect*> hitEffects_;
 	std::list<ShieldEnemy*> shieldEnemies_;
 	std::list<GuardEffect*> guardEffects_;
+	StageManager* stageDataManager_ = nullptr; 
+	// ステージマネージャ参照用のポインタ
+	StageManager* stageManager_ = nullptr;
+
 
 	KamataEngine::Model* modelSkydome_ = nullptr;
 	KamataEngine::Model* modelPlayer_ = nullptr;

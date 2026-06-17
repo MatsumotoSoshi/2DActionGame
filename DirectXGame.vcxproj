@@ -168,6 +168,7 @@
     <ClCompile Include="DeathParticles.cpp" />
     <ClCompile Include="Direction.cpp" />
     <ClCompile Include="Easing.cpp" />
+    <ClCompile Include="StageManager.cpp" />
     <ClCompile Include="WalkEnemy.cpp" />
     <ClCompile Include="Fade.cpp" />
     <ClCompile Include="GameScene.cpp" />
@@ -287,6 +288,7 @@
     <ClInclude Include="DeathParticles.h" />
     <ClInclude Include="Direction.h" />
     <ClInclude Include="Easing.h" />
+    <ClInclude Include="StageManager.h" />
     <ClInclude Include="WalkEnemy.h" />
     <ClInclude Include="Fade.h" />
     <ClInclude Include="GameScene.h" />

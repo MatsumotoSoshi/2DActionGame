@@ -1,4 +1,5 @@
 #include "GameScene.h"
+#include "StageManager.h"
 using namespace KamataEngine;
 
 void GameScene::GenerateFieldObjects() {
@@ -78,10 +79,13 @@ void GameScene::CreateGuardEffect(const KamataEngine::WorldTransform& worldTrans
 	guardEffects_.push_back(newHitEffect);
 }
 
-void GameScene::Initialize() { 
+void GameScene::Initialize(StageManager* stageDataManager_) { 
 	phase_ = Phase::kFadeIn;
 
 	 camera_.farZ = 5000.0f;
+
+	 // 引数をメンバ変数に記録する
+	 stageManager_ = stageDataManager_;
 
 	// カメラ初期化
 	camera_.Initialize();
@@ -105,8 +109,13 @@ void GameScene::Initialize() {
     debugCamera_ = new DebugCamera(1280, 720);
 
     mapChipField_ = new MapChipField;
-    mapChipField_->LoadMapChipCsv("Resources/blocks.csv");
-
+    
+	// 現在のステージを変更
+	const StageManager::StageData& stageData = stageManager_->GetCurrentStageData();
+	// ステージファイルパスの生成
+	std::string stageFileName = "Resources/fields/" + stageData.name + ".csv";
+	// ステージファイルの読み込み
+	mapChipField_->LoadMapChipCsv(stageFileName);
 
     // カメラコントローラ初期化
     cameraController_.Initialize();
