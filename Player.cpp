@@ -714,7 +714,6 @@ void Player::Update() {
 		BehaviorKnockBackUpdate();
 		break;
 	}
-
 } 
 
 void Player::Draw(const Camera& camera) { 
