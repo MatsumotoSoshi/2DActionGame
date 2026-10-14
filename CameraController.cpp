@@ -1,6 +1,5 @@
 #define NOMINMAX
 #include "CameraController.h"
-#include "Player.h"
 #include <algorithm>
 using namespace KamataEngine;
 
@@ -25,6 +24,7 @@ void CameraController::Update() {
 	targetCoordinates_.x = targetWorldTransform.translation_.x + targetOffset_.x + targetVelocity.x * kVelocityBias;
 	targetCoordinates_.y = targetWorldTransform.translation_.y + targetOffset_.y;
 	targetCoordinates_.z = targetWorldTransform.translation_.z + targetOffset_.z;
+
 
 	// 座標補間によりゆったり追従
 	camera_.translation_ = Lerp(camera_.translation_, targetCoordinates_, kInterpolationRate); 
@@ -56,6 +56,39 @@ void CameraController::Update() {
 	if (minY <= maxY) {
 		camera_.translation_.y = std::clamp(camera_.translation_.y, minY, maxY);
 	}
+
+	// 敵死亡時のカメラ揺れを反映
+	if (target_->IsKill()) {
+		cameraShakeKill_ = true;
+	}
+	
+
+	if (cameraShakeKill_) {
+		// 揺れの強さ
+		float shakeStrength = 0.8f;
+
+		// 揺れの周期
+		float shakeFrequency = 30.0f;
+
+		// 揺れの時間経過
+		static float shakeTime = 0.0f;
+
+		shakeTime += 1.0f / 60.0f; // フレームレートに応じて調整
+
+		cameraShakeOffset_.x = shakeStrength * sinf(shakeFrequency * shakeTime);
+		cameraShakeOffset_.y = shakeStrength * cosf(shakeFrequency * shakeTime);
+
+		camera_.translation_.x += cameraShakeOffset_.x;
+		camera_.translation_.y += cameraShakeOffset_.y;
+
+		if (shakeTime >= 0.2f) { // 揺れ時間が経過したら揺れを止める
+			cameraShakeKill_ = false;
+			cameraShakeOffset_ = {0, 0, 0};
+			shakeTime = 0.0f;
+		}
+	}
+
+	
 	// 行列を更新する
 	camera_.UpdateMatrix();
 }

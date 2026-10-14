@@ -8,6 +8,7 @@ using namespace KamataEngine;
 
 void ShieldEnemy::Initialize(Model* model, Camera* camera, const Vector3& position) { 
 	model_ = model;
+	camera_ = camera;
 
 	worldTransform_.Initialize();
 	worldTransform_.translation_ = position;
@@ -61,6 +62,7 @@ void ShieldEnemy::onCollision(Player* player) {
 		}
 
 		// 敵のふるまいをデス演出に変更
+		gameScene_->StartHitStop();
 		behaviorRequest_ = Behavior::kDeath;
 
 		Vector3 effectPos = (this->worldTransform_.translation_ + player->GetWorldTransform().translation_) / 2.0f;

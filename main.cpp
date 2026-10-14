@@ -106,7 +106,7 @@ void DrawScene() {
 // Windowsアプリでのエントリーポイント(main関数)
 int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	// エンジンの初期化
-	Initialize(L"LE2CB_26_マツモト_ソウシ_2DActionGame");
+	Initialize(L"LE2C_26_マツモト_ソウシ_2DActionGame");
 
 	DirectXCommon* dxCommon = DirectXCommon::GetInstance();
 

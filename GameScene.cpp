@@ -80,7 +80,7 @@ void GameScene::CreateGuardEffect(const KamataEngine::WorldTransform& worldTrans
 }
 
 void GameScene::Initialize(StageManager* stageDataManager_) { 
-	phase_ = Phase::kFadeIn;
+	 phase_ = Phase::kFadeIn;
 
 	 camera_.farZ = 5000.0f;
 
@@ -90,7 +90,7 @@ void GameScene::Initialize(StageManager* stageDataManager_) {
 	// カメラ初期化
 	camera_.Initialize();
 
-	 // 3Dモデル生成
+	// 3Dモデル生成
     modelBlock_ = Model::CreateFromOBJ("block");
     modelSkydome_ = Model::CreateFromOBJ("SkyDome");
     modelPlayer_ = Model::CreateFromOBJ("Player");
@@ -170,7 +170,7 @@ void GameScene::CheckAllCollisions() {
 			// AABB同士の交差判定
 			if (Collision::IsCollision(aabb1, aabb2)) {
 				// 自キャラの衝突時コールバックを呼び出す
-				player_->onCollision(enemy);
+				player_->OnCollision(enemy);
 
 				// 敵弾の衝突時コールバックを呼び出す
 				enemy->onCollision(player_);
@@ -198,7 +198,7 @@ void GameScene::CheckAllCollisions() {
 			// AABB同士の交差判定
 			if (Collision::IsCollision(aabb1, aabb2)) {
 				// 自キャラの衝突時コールバックを呼び出す
-				player_->onCollision(shieldEnemy);
+				player_->OnCollision(shieldEnemy);
 
 				// 敵弾の衝突時コールバックを呼び出す
 				shieldEnemy->onCollision(player_);
@@ -211,7 +211,7 @@ void GameScene::CheckAllCollisions() {
 void GameScene::CameraUpdate() { 
 	#ifdef _DEBUG
 	// デバッグカメラの切り替え
-	if (Input::GetInstance()->TriggerKey(DIK_SPACE)) {
+	if (Input::GetInstance()->TriggerKey(DIK_C)) {
 		isDebugCameraActive_ = true;
 	}
 #endif
@@ -254,6 +254,15 @@ void GameScene::ChangePhase() {
 }
 
 void GameScene::Update() { 
+	if (isHitStoped_) {
+		++hitStopTimer_;
+		if (hitStopTimer_ < kHitStopDuration) {
+			return;
+		}
+		isHitStoped_ = false;
+		hitStopTimer_ = 0;
+	}
+
 	ChangePhase();
 
 	// 天球の更新
@@ -333,7 +342,6 @@ void GameScene::Update() {
 
 	case Phase::kPlay:
 		// ゲームフェーズの処理
-		
 		// 自キャラの更新
 		player_->Update();
 
@@ -387,9 +395,14 @@ void GameScene::Update() {
 
 }
 
+void GameScene::StartHitStop() {
+	isHitStoped_ = true;
+	hitStopTimer_ = 0;
+}
+
 void GameScene::Draw() {
-	// 3D描画前処理
-	Model::PreDraw();
+	// 不透明なモデルはブレンドせず、深度を書き込みながら描画する
+	Model::PreDraw(Model::CullingMode::kBack, Model::BlendMode::kNone, Model::DepthTestMode::kOn);
 
 	switch (phase_) {
 	case Phase::kFadeIn:
@@ -439,16 +452,6 @@ void GameScene::Draw() {
 			shieldEnemy->Draw(cameraController_.GetCamera());
 		}
 
-		// ヒットエフェクトの描画
-		for (HitEffect* hitEffect : hitEffects_) {
-			hitEffect->Draw(cameraController_.GetCamera());
-		}
-
-		// ガードエフェクトの描画
-		for (GuardEffect* guardEffect : guardEffects_) {
-			guardEffect->Draw(cameraController_.GetCamera());
-		}
-
 		// ブロックの描画
 		for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTransformBlocks_) {
 			for (WorldTransform* worldTransformBlock : worldTransformBlockLine) {
@@ -469,11 +472,6 @@ void GameScene::Draw() {
 
 		// 天球の描画
 		skydome_.Draw();
-
-		// デスパーティクルの描画
-		if (deathParticles_) {
-			deathParticles_->Draw(cameraController_.GetCamera());
-		}
 
 		// 敵の描画(複数)
 		for (WalkEnemy* enemy : enemies_) {
@@ -523,7 +521,22 @@ void GameScene::Draw() {
 		break;
 	}
 
-	// 3D描画後処理
+	// 不透明モデルの描画を終了し、半透明エフェクト用のパスに切り替える
+	Model::PostDraw();
+	Model::PreDraw(Model::CullingMode::kBack, Model::BlendMode::kNormal, Model::DepthTestMode::kReadOnly);
+
+	if (phase_ == Phase::kPlay) {
+		player_->DrawAttack(cameraController_.GetCamera());
+		for (HitEffect* hitEffect : hitEffects_) {
+			hitEffect->Draw(cameraController_.GetCamera());
+		}
+		for (GuardEffect* guardEffect : guardEffects_) {
+			guardEffect->Draw(cameraController_.GetCamera());
+		}
+	} else if (phase_ == Phase::kDeath && deathParticles_) {
+		deathParticles_->Draw(cameraController_.GetCamera());
+	}
+
 	Model::PostDraw();
 
 	// フェードの描画

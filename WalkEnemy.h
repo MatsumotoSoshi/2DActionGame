@@ -87,6 +87,7 @@ public:
 
 	bool IsCollisionDisabled() const { return isCollisionDisabled_; }
 
+
 private:
 	KamataEngine::WorldTransform worldTransform_;
 	KamataEngine::Model* model_ = nullptr;

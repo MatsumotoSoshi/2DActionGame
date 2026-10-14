@@ -50,6 +50,8 @@ public:
 		kPlay,      // ゲームプレイ
 		kDeath,     // デス演出
 		kFadeOut,   // フェードアウト
+		kTitle,     // タイトルシーン
+		kClear,     // クリアシーン
 	};
 
 	// ゲームの現在フェーズ
@@ -72,6 +74,9 @@ public:
 	// ヒットエフェクトを生成
 	void CreateHitEffect(const KamataEngine::WorldTransform& worldTransform);
 
+	// ヒットストップを開始
+	void StartHitStop();
+
 	// ガードエフェクトを生成
 	void CreateGuardEffect(const KamataEngine::WorldTransform& worldTransform);
 
@@ -80,6 +85,15 @@ public:
 
 	// リロード要求フラグのgetter
 	bool IsReloadRequested() const { return reloadRequested_; }
+
+	
+	// =====ヒットストップ=====
+	// ヒットストップの経過時間カウンター
+	uint32_t hitStopTimer_ = 0;
+	bool isHitStoped_ = false;
+	// ヒットストップ時間
+	static inline const uint32_t kHitStopDuration = 15;
+
 
 private:
 	KamataEngine::Model* modelBlock_ = nullptr;

@@ -26,11 +26,11 @@ void Player::Move() {
 	if (onGround_) {
 
 		// 左右移動
-		if (Input::GetInstance()->PushKey(DIK_RIGHT) || Input::GetInstance()->PushKey(DIK_LEFT)) {
+		if (Input::GetInstance()->PushKey(DIK_D) || Input::GetInstance()->PushKey(DIK_A)) {
 
 			// 左右加速
 			KamataEngine::Vector3 acceleration = {};
-			if (Input::GetInstance()->PushKey(DIK_RIGHT)) {
+			if (Input::GetInstance()->PushKey(DIK_D)) {
 				if (velocity_.x < 0.0f) {
 					velocity_.x *= (1.0f - kAttenuation);
 				}
@@ -43,7 +43,7 @@ void Player::Move() {
 					// 旋回タイマーに時間を設定する
 					turnTimer_ = kTimeTurn;
 				}
-			} else if (Input::GetInstance()->PushKey(DIK_LEFT)) {
+			} else if (Input::GetInstance()->PushKey(DIK_A)) {
 
 				if (velocity_.x > 0.0f) {
 					velocity_.x *= (1.0f - kAttenuation);
@@ -75,10 +75,11 @@ void Player::Move() {
 			}
 		}
 
-		if (Input::GetInstance()->TriggerKey(DIK_UP)) {
+		if (jumpBufferTimer_ > 0) {
 			// ジャンプ初速
 			velocity_.y = kJumpAcceleration_;
 			onGround_ = false;
+			jumpBufferTimer_ = 0;
 		}
 
 		// 空中
@@ -97,7 +98,7 @@ Vector3 Player::CornerPosition(const Vector3& center, Corner corner ){
 	    {+kWidth / 2.0f, +kHeight / 2.0f, 0}, //  kRightTop
 	    {-kWidth / 2.0f, +kHeight / 2.0f, 0}, //  kLeftTop
 	};
-
+	
 	return center + offSetTable[static_cast<uint32_t>(corner)];
 }
 
@@ -121,22 +122,30 @@ AABB Player::GetAABB() {
 	return aabb;
 }
 
-void Player::onCollision(const WalkEnemy* enemy) { 
+void Player::OnCollision(const WalkEnemy* enemy) { 
 	if (IsAttack()) {
+		isKilled_ = true;
 		return;     // 攻撃中はダメージ無効
 	}
 
 	(void)enemy; 
 	isDead_ = true;
+	velocity_ = {0.0f, 0.0f, 0.0f};
 }
 
-void Player::onCollision(const ShieldEnemy* enemy) {
-	if (IsAttack() || behavior_ == Behavior::kKnockback) {
+void Player::OnCollision(const ShieldEnemy* enemy) {
+	if (IsAttack()) {
+
+		if (lrDirection_ == LRDirection::kLeft) {
+			isKilled_ = true;
+		}
+
 		return;
 	}
 
 	(void)enemy;
 	isDead_ = true;
+	velocity_ = {0.0f, 0.0f, 0.0f};
 }
 
 void Player::CollisionMapTop(CollisionMapInfo& info) {
@@ -439,7 +448,7 @@ void Player::BehaviorAttackInitialize() {
     // カウンター初期化
 	attackParameter_ = 0;
 	velocity_ = Vector3{0, 0, 0};
-
+	
 	attackPhase_ = AttackPhase::kCharge;
 }
 
@@ -464,7 +473,10 @@ void Player::BehaviorKnockBackInitialize() {
 
 void Player::BehaviorRootUpdate() {
 
-	Move();
+	if (!isDead_) {
+		// isDeadがfalseのときだけ
+		Move();
+	}
 
 	// 衝突情報を初期化
 	CollisionMapInfo collisionMapInfo;
@@ -511,10 +523,12 @@ void Player::BehaviorRootUpdate() {
 		worldTransform_.rotation_.y = turnFirstRotationY_ + (destinationRotationY - turnFirstRotationY_) * easeInOut;
 	}
 
-	if (Input::GetInstance()->TriggerKey(DIK_RETURN)) {
-		// 攻撃ビヘイビアをリクエスト
-		behaviorRequest_ = Behavior::kAttack;
-
+	if (!isDead_) {
+		// isdeadがfalseのときだけ
+		if (Input::GetInstance()->TriggerKey(DIK_SPACE)) {
+			// 攻撃ビヘイビアをリクエスト
+			behaviorRequest_ = Behavior::kAttack;
+		}
 	}
 
 	// ワールド行列を更新
@@ -548,7 +562,6 @@ void Player::BehaviorAttackUpdate(CollisionMapInfo& info) {
 	} else {
 		worldTransformAttack_.scale_.x = 1.0f;
 	}
-
 
 	switch (attackPhase_) {
 		// 溜め動作
@@ -662,12 +675,21 @@ void Player::BehaviorKnockBackUpdate() {
 	worldMatrix_.Update(worldTransform_);
 }
 
-void Player::Update() { 
+void Player::Update() {
+	isKilled_ = false;
+
+	// 着地と入力が同じフレームになってもジャンプできるよう、入力を短時間保持する
+	if (Input::GetInstance()->TriggerKey(DIK_W)) {
+		jumpBufferTimer_ = kJumpBufferDuration_;
+	} else if (jumpBufferTimer_ > 0) {
+		--jumpBufferTimer_;
+	}
+
 	// 衝突情報を初期化
 	CollisionMapInfo collisionMapInfo;
 
 	if (isKnockBackRequested_) {
-		behaviorRequest_ = Behavior::kKnockback;	
+		behaviorRequest_ = Behavior::kKnockback;
 		// フラグをリセット
 		isKnockBackRequested_ = false;
 	}
@@ -718,9 +740,11 @@ void Player::Update() {
 
 void Player::Draw(const Camera& camera) { 
 	 model_->Draw(worldTransform_, camera);
+}
 
-	 // 攻撃中ならエフェクト表示
-	 if (behavior_ == Behavior::kAttack && attackPhase_ == AttackPhase::kRush) {
-		 modelAttack_->Draw(worldTransformAttack_, camera);
-	 }
+void Player::DrawAttack(const Camera& camera) {
+	// 攻撃中なら、透過テクスチャを使う攻撃モデルを描画
+	if (behavior_ == Behavior::kAttack && attackPhase_ == AttackPhase::kRush) {
+		modelAttack_->Draw(worldTransformAttack_, camera);
+	}
 }

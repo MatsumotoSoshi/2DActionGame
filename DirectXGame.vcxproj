@@ -164,6 +164,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="CameraController.cpp" />
+    <ClCompile Include="ClearScene.cpp" />
     <ClCompile Include="Collision.cpp" />
     <ClCompile Include="DeathParticles.cpp" />
     <ClCompile Include="Direction.cpp" />
@@ -284,6 +285,7 @@
   <ItemGroup>
     <ClInclude Include="AABB.h" />
     <ClInclude Include="CameraController.h" />
+    <ClInclude Include="ClearScene.h" />
     <ClInclude Include="Collision.h" />
     <ClInclude Include="DeathParticles.h" />
     <ClInclude Include="Direction.h" />

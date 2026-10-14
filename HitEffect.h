@@ -55,6 +55,8 @@ public:
 	static inline const uint32_t kSpreadDuration = 20;
 	static inline const uint32_t kFadeDuration = 20;
 
+	// 
+
 private:
 	// モデル（借りてくる用）
 	static KamataEngine::Model* model_;

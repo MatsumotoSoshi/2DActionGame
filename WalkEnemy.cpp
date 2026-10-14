@@ -8,6 +8,7 @@ using namespace KamataEngine;
 
 void WalkEnemy::Initialize(Model* model, Camera* camera, const Vector3& position) { 
 	model_ = model;
+	camera_ = camera;
 
 	worldTransform_.Initialize();
 	worldTransform_.translation_ = position;
@@ -47,6 +48,7 @@ void WalkEnemy::onCollision(const Player* player) {
 
 	// プレイヤーが攻撃中なら敵が死ぬ
 	if (player->IsAttack()) {
+		gameScene_->StartHitStop();
 		// 敵のふるまいをデス演出に変更
 		behaviorRequest_ = Behavior::kDeath;
 
@@ -94,6 +96,7 @@ void WalkEnemy::Update() {
 	}
 
 	case Behavior::kDeath: {
+
 		// アニメーションのタイマーを加算する
 		animationTimer_++;
 

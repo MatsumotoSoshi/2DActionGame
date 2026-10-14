@@ -92,6 +92,7 @@ public:
 
 	LRDirection lrDirection_ = LRDirection::kLeft;
 
+
 private:
 	KamataEngine::WorldTransform worldTransform_;
 	KamataEngine::Model* model_ = nullptr;

@@ -29,6 +29,7 @@ public:
 	/// 描画
 	/// </summary>
 	void Draw(const KamataEngine::Camera& camera);
+	void DrawAttack(const KamataEngine::Camera& camera);
 
 
 	KamataEngine::Vector3 velocity_ = {};
@@ -57,6 +58,9 @@ public:
 	static inline const float kLimitFallSpeed_ = 2.0f;
 	// ジャンプ初速
 	static inline const float kJumpAcceleration_ = 0.65f;
+	// 着地直前の入力も受け付けるジャンプ入力の猶予
+	static inline const uint32_t kJumpBufferDuration_ = 8;
+	uint32_t jumpBufferTimer_ = 0;
 
 	bool landing_ = false;
 
@@ -118,7 +122,6 @@ public:
 	void CollisionWall(const CollisionMapInfo& info);
 
 	// 壁接触時の速度減衰率
-
 	static inline const float kAttenuationWall = 0.9f;
 
 	// ワールド座標を取得
@@ -127,8 +130,8 @@ public:
 	AABB GetAABB();
 
 	// 衝突反応
-	void onCollision(const WalkEnemy* enemy);
-	void onCollision(const ShieldEnemy* enemy);
+	void OnCollision(const WalkEnemy* enemy);
+	void OnCollision(const ShieldEnemy* enemy);
 
 	// デスフラグ
 	bool isDead_ = false;
@@ -148,6 +151,8 @@ public:
 		kKnockback,   // ノックバック
 		kUnknown      // 不明
 	};
+
+	Behavior GetBehavior() const { return behavior_; }
 
 	// ふるまい
 	Behavior behavior_ = Behavior::kRoot;
@@ -191,14 +196,22 @@ public:
 
 	// ノックバックリクエストフラグ
 	bool isKnockBackRequested_ = false;
-
 	void RequestKnockBack() { isKnockBackRequested_ = true; }
 
 	// ノックバック初期化
 	void BehaviorKnockBackInitialize();
-
 	// ノックバック更新
 	void BehaviorKnockBackUpdate();
+
+	// 敵討伐フラグ
+	bool isKilled_ = false;
+	// 敵討伐ゲッター
+	bool IsKill() const { return isKilled_; }
+
+	
+	// ヒットストップフラグ
+	bool isHitStoped_ = false;
+	bool IsHitStop() const { return isHitStoped_; }
 
 private:
 	KamataEngine::Model* model_ = nullptr;

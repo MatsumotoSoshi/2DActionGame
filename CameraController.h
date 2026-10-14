@@ -1,7 +1,7 @@
 #pragma once
 #include "KamataEngine.h" 
+#include "Player.h" 
 
-class Player;
 
 class CameraController 
 {
@@ -41,6 +41,12 @@ private:
 
 	Player* target_ = nullptr;
 	KamataEngine::Vector3 targetOffset_ = {0, 0, -15.0f};
+
+	// プレイヤー攻撃時のカメラ揺れ
+	KamataEngine::Vector3 cameraShakeOffset_ = {0, 0, 0};
+
+	// カメラ揺れフラグ
+	bool cameraShakeKill_ = false;
 
 	Rect movableArea_ = {0, 100, 0, 100};
 	// 目標座標
