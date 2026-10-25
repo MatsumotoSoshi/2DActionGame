@@ -2,12 +2,18 @@
 #include "Fade.h"
 #include "KamataEngine.h"
 #include "WorldMatrix.h"
+#include "MapChipField.h"
+#include "Trajectory.h"
+#include <vector>
+
+class StageManager;
+
 class ClearScene {
 public:
 	/// <summary>
 	/// 初期化
 	/// </summary>
-	void Initialize();
+	void Initialize(const std::vector<KamataEngine::Vector3>& path, StageManager* stageManager);
 
 	/// <summary>
 	/// 更新
@@ -45,6 +51,16 @@ public:
 private:
 	// 3Dモデル
 	KamataEngine::Model* modelFont_ = nullptr;
+	KamataEngine::Model* modelBlock_ = nullptr;
+	KamataEngine::Model* modelEnemy_ = nullptr;
+	KamataEngine::Model* modelShieldEnemy_ = nullptr;
+	MapChipField* mapChipField_ = nullptr;
+	std::vector<KamataEngine::WorldTransform*> stageBlocks_;
+	std::vector<KamataEngine::WorldTransform*> normalTargets_;
+	std::vector<KamataEngine::WorldTransform*> shieldTargets_;
+	KamataEngine::WorldTransform goalTransform_;
+	KamataEngine::ObjectColor goalColor_;
+	Trajectory trajectory_;
 
 	// ワールド変換
 	KamataEngine::WorldTransform worldTransformFont_;

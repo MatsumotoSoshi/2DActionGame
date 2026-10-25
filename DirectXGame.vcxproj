@@ -170,6 +170,8 @@
     <ClCompile Include="Direction.cpp" />
     <ClCompile Include="Easing.cpp" />
     <ClCompile Include="StageManager.cpp" />
+    <ClCompile Include="StageSelectScene.cpp" />
+    <ClCompile Include="Trajectory.cpp" />
     <ClCompile Include="WalkEnemy.cpp" />
     <ClCompile Include="Fade.cpp" />
     <ClCompile Include="GameScene.cpp" />
@@ -291,6 +293,8 @@
     <ClInclude Include="Direction.h" />
     <ClInclude Include="Easing.h" />
     <ClInclude Include="StageManager.h" />
+    <ClInclude Include="StageSelectScene.h" />
+    <ClInclude Include="Trajectory.h" />
     <ClInclude Include="WalkEnemy.h" />
     <ClInclude Include="Fade.h" />
     <ClInclude Include="GameScene.h" />

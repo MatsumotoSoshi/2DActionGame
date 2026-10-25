@@ -22,6 +22,7 @@ public:
 		assert(index >= 0 && index < stageDatas_.size());
 		return stageDatas_[index];
 	}
+	int32_t GetStageCount() const { return static_cast<int32_t>(stageDatas_.size()); }
 
 	void SetCurrentStageIndex(int32_t index) { 
 		assert(index >= 0 && index < stageDatas_.size());

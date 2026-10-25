@@ -3,17 +3,26 @@
 #include <algorithm>
 using namespace KamataEngine;
 
-void Fade::Initialize() { 
-uint32_t textureHandle = TextureManager::Load("white1x1.png");
-sprite_ = Sprite::Create(textureHandle, {0, 0});
-sprite_->SetSize(Vector2(1280, 720));
-sprite_->SetColor(Vector4(0, 0, 0, 1));
+void Fade::Initialize() {
+	// 1つの墨の形を画面より大きく広げて、画面全体を覆う。
+	uint32_t textureHandle = TextureManager::Load("particle/circle.png");
+	inkSprite_ = Sprite::Create(textureHandle, {-kBlobSize * 0.5f, -kBlobSize * 0.5f}, {0.015f, 0.02f, 0.035f, 1.0f});
+	inkSprite_->SetSize({0.0f, 0.0f});
+}
+
+Fade::~Fade() {
+	delete inkSprite_;
 }
 
 void Fade::Start(Status status, float duration) {
 status_ = status;
 duration_ = duration;
 counter_ = 0.0f;
+	if (status_ == Status::FadeIn) {
+		UpdateInk(kBlobSize, 1.0f);
+	} else if (status_ == Status::FadeOut) {
+		UpdateInk(0.0f, 1.0f);
+	}
 }
 
 void Fade::Stop() { 
@@ -39,6 +48,7 @@ void Fade::Update() {
 		break;
 
 	case Status::FadeIn:
+	{
 		// フェードイン中の更新処理
 		// 1フレーム分の秒数をカウントアップ
 		counter_ += 1.0f / 60.0f;
@@ -46,10 +56,13 @@ void Fade::Update() {
 		counter_ = std::min(counter_, duration_);
 		
 		// 1.0fから0.0fの間で、経過時間がフェード時間に近づくほどにアルファ値が小さくする
-		sprite_->SetColor(Vector4(0, 0, 0, std::clamp(1.0f - counter_ / duration_, 0.0f, 1.0f)));
+		const float alpha = duration_ > 0.0f ? std::clamp(1.0f - counter_ / duration_, 0.0f, 1.0f) : 0.0f;
+		UpdateInk(kBlobSize, alpha);
 		break;
+	}
 
 	case Status::FadeOut:
+	{
 		// フェードアウト中の更新処理
 		// 1フレーム分の秒数をカウントアップ
 		counter_ += 1.0f / 60.0f;
@@ -57,9 +70,17 @@ void Fade::Update() {
 		counter_ = std::min(counter_, duration_);
 
 		// 0.0fから1.0fの間で、経過時間がフェード時間に近づくほどにアルファ値が大きくする
-		sprite_->SetColor(Vector4(0, 0, 0, std::clamp(counter_ / duration_, 0.0f, 1.0f)));
+		const float progress = duration_ > 0.0f ? std::clamp(counter_ / duration_, 0.0f, 1.0f) : 1.0f;
+		UpdateInk(kBlobSize * progress, 1.0f);
 		break;
 	}
+	}
+}
+
+void Fade::UpdateInk(float size, float alpha) {
+	inkSprite_->SetSize({size, size});
+	inkSprite_->SetPosition({640.0f - size * 0.5f, 360.0f - size * 0.5f});
+	inkSprite_->SetColor({0.015f, 0.02f, 0.035f, alpha});
 }
 
 void Fade::Draw() {
@@ -68,6 +89,6 @@ void Fade::Draw() {
 	}
 
 	Sprite::PreDraw();
-	sprite_->Draw();
+	inkSprite_->Draw();
 	Sprite::PostDraw();
 }

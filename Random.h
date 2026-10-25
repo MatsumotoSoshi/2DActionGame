@@ -10,7 +10,7 @@ public:
 	}
 
 	// 指定範囲の乱数生成器（浮動小数点数用）
-	float getRotation(float min, float max) {
+	float getRandom(float min, float max) {
 		// 乱数範囲ごとの初期化
 		std::uniform_real_distribution<float> rotationDistribution(min, max);
 

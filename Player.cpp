@@ -2,93 +2,162 @@
 #include "Player.h"
 #include <numbers>
 #include <algorithm>
+#include <cmath>
+#include <initializer_list>
 #include "MapChipField.h"
+#include "ShieldEnemy.h"
 #include "Operator.h"
-#include "Easing.h"
 using namespace KamataEngine;
 
-void Player::Initialize(Model* model, Model* modelAttack, Camera* camera, const Vector3& position) {
+void Player::Initialize(Model* model, Model* bubbleModel, Camera* camera, const Vector3& position) {
 	model_ = model;
-	modelAttack_ = modelAttack;
+	bubbleModel_ = bubbleModel;
 
 	worldTransform_.Initialize();
 	worldTransform_.translation_ = position;
-	worldTransform_.rotation_.y = std::numbers::pi_v<float> / 2.0f;
+	worldTransform_.rotation_ = {0.0f, 0.0f, aimAngle_ - std::numbers::pi_v<float> / 2.0f};
+	// Draw may be called before the first Update (for example during fade-in).
+	// Transfer a valid world matrix as soon as the transform is initialized.
+	worldMatrix_.Update(worldTransform_);
 
-	worldTransformAttack_.Initialize();
+	for (Afterimage& afterimage : afterimages_) {
+		afterimage.worldTransform_.Initialize();
+		afterimage.objectColor_.Initialize();
+	}
+
+	for (DashBubble& bubble : dashBubbles_) {
+		bubble.worldTransform_.Initialize();
+		bubble.objectColor_.Initialize();
+	}
 
 	velocity_ = {0, 0, 0}; 
 
 }
 
-void Player::Move() {
-	// 移動入力
-	if (onGround_) {
+void Player::Update() {
+	isKilled_ = false;
 
-		// 左右移動
-		if (Input::GetInstance()->PushKey(DIK_D) || Input::GetInstance()->PushKey(DIK_A)) {
+	// 衝突情報を初期化
+	CollisionMapInfo collisionMapInfo;
 
-			// 左右加速
-			KamataEngine::Vector3 acceleration = {};
-			if (Input::GetInstance()->PushKey(DIK_D)) {
-				if (velocity_.x < 0.0f) {
-					velocity_.x *= (1.0f - kAttenuation);
-				}
-
-				acceleration.x += kAcceleration;
-				if (lrDirection_ != LRDirection::kRight) {
-					lrDirection_ = LRDirection::kRight;
-					// 旋回開始時の角度を記録
-					turnFirstRotationY_ = worldTransform_.rotation_.y;
-					// 旋回タイマーに時間を設定する
-					turnTimer_ = kTimeTurn;
-				}
-			} else if (Input::GetInstance()->PushKey(DIK_A)) {
-
-				if (velocity_.x > 0.0f) {
-					velocity_.x *= (1.0f - kAttenuation);
-				}
-
-				acceleration.x -= kAcceleration;
-
-				if (lrDirection_ != LRDirection::kLeft) {
-					lrDirection_ = LRDirection::kLeft;
-					// 旋回開始時の角度を記録
-					turnFirstRotationY_ = worldTransform_.rotation_.y;
-					// 旋回タイマーに時間を設定する
-					turnTimer_ = kTimeTurn;
-				}
-			}
-
-			velocity_.x += acceleration.x;
-
-			velocity_.x = std::clamp(velocity_.x, -kLimitRunSpeed, kLimitRunSpeed);
-
-		} else {
-
-			// 減速処理
-			velocity_.x *= (1.0f - kAttenuation);
-
-			// 微小値なら完全停止
-			if (std::abs(velocity_.x) < 0.01f) {
-				velocity_.x = 0.0f;
-			}
-		}
-
-		if (jumpBufferTimer_ > 0) {
-			// ジャンプ初速
-			velocity_.y = kJumpAcceleration_;
-			onGround_ = false;
-			jumpBufferTimer_ = 0;
-		}
-
-		// 空中
-	} else {
-		// 落下速度
-		velocity_.y -= kGravityAcceleration_;
-		// 落下速度制限
-		velocity_.y = std::max(velocity_.y, -kLimitFallSpeed_);
+	if (isKnockBackRequested_) {
+		behaviorRequest_ = Behavior::kKnockback;
+		// フラグをリセット
+		isKnockBackRequested_ = false;
 	}
+
+	if (behaviorRequest_ != Behavior::kUnknown) {
+		// ふるまいを変更する
+		behavior_ = behaviorRequest_;
+		// 各振る舞いごとの初期化を行う
+		switch (behavior_) {
+		case Behavior::kRoot:
+		default:
+			BehaviorRootInitialize();
+
+			break;
+
+		case Behavior::kAttack:
+			BehaviorAttackInitialize();
+
+			break;
+
+		case Behavior::kKnockback:
+			BehaviorKnockBackInitialize();
+
+			break;
+
+		case Behavior::kStuck:
+			BehaviorStuckInitialize();
+			break;
+		}
+
+		// ふるまいリクエストをリセット
+		behaviorRequest_ = Behavior::kUnknown;
+	}
+
+	switch (behavior_) {
+		// 通常行動
+	case Behavior::kRoot:
+	default:
+		BehaviorRootUpdate();
+		break;
+
+		// 攻撃行動
+	case Behavior::kAttack:
+		BehaviorAttackUpdate(collisionMapInfo);
+		break;
+
+	case Behavior::kKnockback:
+		BehaviorKnockBackUpdate();
+		break;
+
+	case Behavior::kStuck:
+		BehaviorStuckUpdate();
+		break;
+	}
+
+	UpdateAfterimages();
+	UpdateDashBubbles();
+}
+
+void Player::Draw(const Camera& camera) {
+	if (model_ == nullptr) {
+		return;
+	}
+
+	model_->Draw(worldTransform_, camera);
+}
+
+void Player::DrawTrajectory() const {
+	if (!mapChipField_ || behavior_ != Behavior::kRoot) {
+		return;
+	}
+
+	const Vector3 start = worldTransform_.translation_;
+	const float directionX = std::cos(aimAngle_);
+	const float directionY = std::sin(aimAngle_);
+	Vector3 end = start;
+	constexpr float sampleStep = 0.1f;
+
+	for (float distance = sampleStep; distance <= kAimPreviewDistance; distance += sampleStep) {
+		const Vector3 sample = {start.x + directionX * distance, start.y + directionY * distance, start.z};
+		bool hitBlock = false;
+		for (float xSign : {-1.0f, 1.0f}) {
+			for (float ySign : {-1.0f, 1.0f}) {
+				const Vector3 corner = {sample.x + xSign * kWidthHalf, sample.y + ySign * kHeightHalf, sample.z};
+				const MapChipField::IndexSet index = mapChipField_->GetMapChipIndexSetByPosition(corner);
+				if (IsSolidMapChipType(mapChipField_->GetMapChipTypeByIndex(index.xIndex, index.yIndex))) {
+					hitBlock = true;
+					break;
+				}
+			}
+			if (hitBlock) {
+				break;
+			}
+		}
+
+		if (hitBlock) {
+			break;
+		}
+		end = sample;
+	}
+
+	PrimitiveDrawer::GetInstance()->DrawLine3d(start, end, {0.2f, 0.8f, 1.0f, 0.9f});
+}
+
+void Player::Move() {
+	const bool turnLeft = Input::GetInstance()->PushKey(DIK_A);
+	const bool turnRight = Input::GetInstance()->PushKey(DIK_D);
+	if (turnLeft != turnRight) {
+		const float turnDirection = turnLeft ? 1.0f : -1.0f;
+		aimAngle_ += turnDirection * kAimRotationSpeed / 60.0f;
+	}
+
+	// 2Dの移動面（XY）に合わせ、Z軸回転だけで進行方向を表す。
+	worldTransform_.rotation_ = {0.0f, 0.0f, aimAngle_ - std::numbers::pi_v<float> / 2.0f};
+	lrDirection_ = std::cos(aimAngle_) >= 0.0f ? LRDirection::kRight : LRDirection::kLeft;
+	velocity_ = {};
 }
 
 Vector3 Player::CornerPosition(const Vector3& center, Corner corner ){
@@ -122,28 +191,29 @@ AABB Player::GetAABB() {
 	return aabb;
 }
 
-void Player::OnCollision(const WalkEnemy* enemy) { 
-	if (IsAttack()) {
-		isKilled_ = true;
-		return;     // 攻撃中はダメージ無効
-	}
+Vector3 Player::GetTipPosition() const {
+	return {worldTransform_.translation_.x + std::cos(aimAngle_) * 0.62f,
+	        worldTransform_.translation_.y + std::sin(aimAngle_) * 0.62f,
+	        worldTransform_.translation_.z};
+}
 
-	(void)enemy; 
-	isDead_ = true;
-	velocity_ = {0.0f, 0.0f, 0.0f};
+void Player::OnCollision(const WalkEnemy* enemy) { 
+	if (IsAttack() && enemy != nullptr) {
+		isKilled_ = true;
+		GearUp();
+	}
 }
 
 void Player::OnCollision(const ShieldEnemy* enemy) {
-	if (IsAttack()) {
-
-		if (lrDirection_ == LRDirection::kLeft) {
+	if (IsAttack() && enemy != nullptr) {
+		if (lrDirection_ == enemy->GetDirection()) {
 			isKilled_ = true;
+			GearUp();
 		}
-
-		return;
 	}
+}
 
-	(void)enemy;
+void Player::OnEnemyTipCollision() {
 	isDead_ = true;
 	velocity_ = {0.0f, 0.0f, 0.0f};
 }
@@ -170,7 +240,7 @@ void Player::CollisionMapTop(CollisionMapInfo& info) {
 	indexSet = mapChipField_->GetMapChipIndexSetByPosition(positionNew[kLeftTop]);
 	mapChipType = mapChipField_->GetMapChipTypeByIndex(indexSet.xIndex, indexSet.yIndex);
 	mapChipTypeNext = mapChipField_->GetMapChipTypeByIndex(indexSet.xIndex, indexSet.yIndex + 1);
-	if (mapChipType == MapChipType::kBlock && mapChipTypeNext != MapChipType::kBlock) {
+	if (IsSolidMapChipType(mapChipType) && !IsSolidMapChipType(mapChipTypeNext)) {
 		hit = true;
 	}
 
@@ -178,7 +248,7 @@ void Player::CollisionMapTop(CollisionMapInfo& info) {
 	indexSet = mapChipField_->GetMapChipIndexSetByPosition(positionNew[kRightTop]);
 	mapChipType = mapChipField_->GetMapChipTypeByIndex(indexSet.xIndex, indexSet.yIndex);
 	mapChipTypeNext = mapChipField_->GetMapChipTypeByIndex(indexSet.xIndex, indexSet.yIndex + 1);
-	if (mapChipType == MapChipType::kBlock && mapChipTypeNext != MapChipType::kBlock) {
+	if (IsSolidMapChipType(mapChipType) && !IsSolidMapChipType(mapChipTypeNext)) {
 		hit = true;
 	}
 
@@ -198,7 +268,7 @@ void Player::CollisionMapTop(CollisionMapInfo& info) {
 			info.move_.y = std::max(0.0f, yMove);
 
 			// 天井に当たったことを記録する
-			info.hitCeiling_ = true;
+			info.hitTop_ = true;
 		}
 	}
 }
@@ -225,7 +295,7 @@ void Player::CollisionMapBottom(CollisionMapInfo& info) {
 	indexSet = mapChipField_->GetMapChipIndexSetByPosition(positionNew[kLeftBottom]);
 	mapChipType = mapChipField_->GetMapChipTypeByIndex(indexSet.xIndex, indexSet.yIndex);
 	mapChipTypeNext = mapChipField_->GetMapChipTypeByIndex(indexSet.xIndex, indexSet.yIndex - 1);
-	if (mapChipType == MapChipType::kBlock && mapChipTypeNext != MapChipType::kBlock) {
+	if (IsSolidMapChipType(mapChipType) && !IsSolidMapChipType(mapChipTypeNext)) {
 		hit = true;
 	}
 
@@ -233,7 +303,7 @@ void Player::CollisionMapBottom(CollisionMapInfo& info) {
 	indexSet = mapChipField_->GetMapChipIndexSetByPosition(positionNew[kRightBottom]);
 	mapChipType = mapChipField_->GetMapChipTypeByIndex(indexSet.xIndex, indexSet.yIndex);
 	mapChipTypeNext = mapChipField_->GetMapChipTypeByIndex(indexSet.xIndex, indexSet.yIndex - 1);
-	if (mapChipType == MapChipType::kBlock && mapChipTypeNext != MapChipType::kBlock) {
+	if (IsSolidMapChipType(mapChipType) && !IsSolidMapChipType(mapChipTypeNext)) {
 		hit = true;
 	}
 
@@ -253,7 +323,7 @@ void Player::CollisionMapBottom(CollisionMapInfo& info) {
 			info.move_.y = std::min(0.0f, yMove);
 
 			// 地面に当たったことを記録する
-			info.hitGround_ = true;
+			info.hitBottom_ = true;
 		}
 	}
 }
@@ -280,7 +350,7 @@ void Player::CollisionMapRight(CollisionMapInfo & info) {
 	indexSet = mapChipField_->GetMapChipIndexSetByPosition(positionNew[kRightTop]);
 	mapChipType = mapChipField_->GetMapChipTypeByIndex(indexSet.xIndex, indexSet.yIndex);
 	mapChipTypeNext = mapChipField_->GetMapChipTypeByIndex(indexSet.xIndex + 1, indexSet.yIndex);
-	if (mapChipType == MapChipType::kBlock && mapChipTypeNext != MapChipType::kBlock) {
+	if (IsSolidMapChipType(mapChipType) && !IsSolidMapChipType(mapChipTypeNext)) {
 		hit = true;
 	}
 
@@ -288,7 +358,7 @@ void Player::CollisionMapRight(CollisionMapInfo & info) {
 	indexSet = mapChipField_->GetMapChipIndexSetByPosition(positionNew[kRightBottom]);
 	mapChipType = mapChipField_->GetMapChipTypeByIndex(indexSet.xIndex, indexSet.yIndex);
 	mapChipTypeNext = mapChipField_->GetMapChipTypeByIndex(indexSet.xIndex + 1, indexSet.yIndex);
-	if (mapChipType == MapChipType::kBlock && mapChipTypeNext != MapChipType::kBlock) {
+	if (IsSolidMapChipType(mapChipType) && !IsSolidMapChipType(mapChipTypeNext)) {
 		hit = true;
 	}
 
@@ -334,7 +404,7 @@ void Player::CollisionMapLeft(CollisionMapInfo& info) {
 	indexSet = mapChipField_->GetMapChipIndexSetByPosition(positionNew[kLeftTop]);
 	mapChipType = mapChipField_->GetMapChipTypeByIndex(indexSet.xIndex, indexSet.yIndex);
 	mapChipTypeNext = mapChipField_->GetMapChipTypeByIndex(indexSet.xIndex - 1, indexSet.yIndex);
-	if (mapChipType == MapChipType::kBlock && mapChipTypeNext != MapChipType::kBlock) {
+	if (IsSolidMapChipType(mapChipType) && !IsSolidMapChipType(mapChipTypeNext)) {
 		hit = true;
 	}
 		
@@ -342,7 +412,7 @@ void Player::CollisionMapLeft(CollisionMapInfo& info) {
 	indexSet = mapChipField_->GetMapChipIndexSetByPosition(positionNew[kLeftBottom]);
 	mapChipType = mapChipField_->GetMapChipTypeByIndex(indexSet.xIndex, indexSet.yIndex);
 	mapChipTypeNext = mapChipField_->GetMapChipTypeByIndex(indexSet.xIndex - 1, indexSet.yIndex);
-	if (mapChipType == MapChipType::kBlock && mapChipTypeNext != MapChipType::kBlock) {
+	if (IsSolidMapChipType(mapChipType) && !IsSolidMapChipType(mapChipTypeNext)) {
 		hit = true;
 	}
 
@@ -370,253 +440,44 @@ void Player::MoveResult(const CollisionMapInfo& info) {
 	worldTransform_.translation_ += info.move_;
 }
 
-void Player::CollisionCeiling(const CollisionMapInfo& info) {
-	// 天井に当たった？
-	if (info.hitCeiling_) {
-		velocity_.y = 0.0f;
-	}
-}
-
-void Player::GroundTransition(const CollisionMapInfo& info) {
-	// 自キャラが接地状態？
-	if (onGround_) {
-		// 接地状態の処理
-
-		// ジャンプ開始
-		if (velocity_.y > 0.0f) {
-			onGround_ = false;
-		} else {
-			// 移動後の4つの角の座標
-			std::array<Vector3, kNumCorner> positionNew;
-
-			for (uint32_t i = 0; i < positionNew.size(); ++i) {
-				positionNew[i] = CornerPosition(worldTransform_.translation_ + info.move_, static_cast<Corner>(i));
-			}
-
-			MapChipType mapChipType;
-			// 真下の当たり判定を行う
-			bool hit = false;
-			// 左下点の判定
-			MapChipField::IndexSet indexSet;
-			indexSet = mapChipField_->GetMapChipIndexSetByPosition(positionNew[kLeftBottom] + Vector3(0, -epsilon, 0));
-			mapChipType = mapChipField_->GetMapChipTypeByIndex(indexSet.xIndex, indexSet.yIndex);
-			if (mapChipType == MapChipType::kBlock) {
-				hit = true;
-			}
-
-			// 右下点の判定
-			indexSet = mapChipField_->GetMapChipIndexSetByPosition(positionNew[kRightBottom] + Vector3(0, -epsilon, 0));
-			mapChipType = mapChipField_->GetMapChipTypeByIndex(indexSet.xIndex, indexSet.yIndex);
-			if (mapChipType == MapChipType::kBlock) {
-				hit = true;
-			}
-
-			// 落下開始
-			if (!hit) {
-				// 空中状態に切り替える
-				onGround_ = false;
-			}
-		}
-
-	} else {
-		// 空中状態の処理
-		// 着地フラグ
-		if (info.hitGround_) {
-
-			// 着地状態に切り替える（落下を止める）
-			onGround_ = true;
-			// 着地時にX速度を減衰
-			velocity_.x *= (1.0f - kAttenuationLanding);
-			// Y爽度を0にする
-			velocity_.y = 0.0f;
-		}
-	}
-}
-
-void Player::CollisionWall(const CollisionMapInfo& info) {
-	// 壁による速度減衰率
-	if (info.hitWall_) {
-		velocity_.x *= (1.0f - kAttenuationWall);
-	}
-}
-
 void Player::BehaviorRootInitialize() { 
 	worldTransform_.scale_ = {1.0f, 1.0f, 1.0f};
+	worldTransform_.rotation_ = {0.0f, 0.0f, aimAngle_ - std::numbers::pi_v<float> / 2.0f};
 }
 
 void Player::BehaviorAttackInitialize() {
-    // カウンター初期化
-	attackParameter_ = 0;
-	velocity_ = Vector3{0, 0, 0};
-	
-	attackPhase_ = AttackPhase::kCharge;
+	// ブロックに当たるまで突進を継続する。
+	currentDashSpeed_ = kDashInitialSpeed;
+	const Vector3 direction = {std::cos(aimAngle_), std::sin(aimAngle_), 0.0f};
+	velocity_ = {direction.x * currentDashSpeed_, direction.y * currentDashSpeed_, 0.0f};
 }
 
 void Player::BehaviorKnockBackInitialize() {
-	knockBackParameter_ = 0;
-	knockBackPhase_ = KnockBackPhase::kBack;
-
 	worldTransform_.scale_ = {1.0f, 1.0f, 1.0f};
-
-	// ノックバック方向
-	float powerX = 0.5f;
-	float powerY = 0.3f;
-
-	if (lrDirection_ == LRDirection::kRight) {
-		velocity_.x = -powerX;
-	} else {
-		velocity_.x = powerX;
-	}
-
-	velocity_.y = powerY;
+	velocity_ = {-std::cos(aimAngle_) * 0.5f, -std::sin(aimAngle_) * 0.5f, 0.0f};
 }
 
 void Player::BehaviorRootUpdate() {
-
 	if (!isDead_) {
-		// isDeadがfalseのときだけ
 		Move();
-	}
-
-	// 衝突情報を初期化
-	CollisionMapInfo collisionMapInfo;
-	// 移動量に速度の値をコピー
-	collisionMapInfo.move_ = velocity_;
-
-	// マップ衝突チェック
-	CollisionMapTop(collisionMapInfo);
-	CollisionMapBottom(collisionMapInfo);
-	CollisionMapRight(collisionMapInfo);
-	CollisionMapLeft(collisionMapInfo);
-
-	// 判定結果を反映して移動させる
-	MoveResult(collisionMapInfo);
-
-	// 天井に接触している場合の処理
-	CollisionCeiling(collisionMapInfo);
-
-	// 接地状態の切り替え処理
-	GroundTransition(collisionMapInfo);
-
-	// 壁に接触している場合の処理
-	CollisionWall(collisionMapInfo);
-
-	// 旋回制御
-	if (turnTimer_ > 0.0f) {
-
-		turnTimer_ -= 1.0f / 60.0f;
-
-		if (turnTimer_ < 0.0f) {
-			turnTimer_ = 0.0f;
-		}
-
-		// 左右の自キャラ角度テーブル
-		float destinationRotationYTable[] = {std::numbers::pi_v<float> / 2.0f, std::numbers::pi_v<float> / 2.0f * 3.0f};
-		// 状態に応じた角度を取得
-		float destinationRotationY = destinationRotationYTable[static_cast<uint32_t>(lrDirection_)];
-
-		float t = 1.0f - (turnTimer_ / kTimeTurn);
-		// イージング関数（EaseInOut）
-		float easeInOut = t * t * (3.0f - 2.0f * t);
-
-		// 自キャラの角度を認定する
-		worldTransform_.rotation_.y = turnFirstRotationY_ + (destinationRotationY - turnFirstRotationY_) * easeInOut;
-	}
-
-	if (!isDead_) {
-		// isdeadがfalseのときだけ
 		if (Input::GetInstance()->TriggerKey(DIK_SPACE)) {
-			// 攻撃ビヘイビアをリクエスト
 			behaviorRequest_ = Behavior::kAttack;
 		}
 	}
 
-	// ワールド行列を更新
 	worldMatrix_.Update(worldTransform_);
 }
 
 void Player::BehaviorAttackUpdate(CollisionMapInfo& info) {
-	// 予備動作
-	attackParameter_++;
+	wallHitThisFrame_ = false;
+	Move();
+	const Vector3 direction = {std::cos(aimAngle_), std::sin(aimAngle_), 0.0f};
+	const float acceleration = kDashAcceleration + gearLevel_ * kGearAccelerationBonus;
+	currentDashSpeed_ = std::min(currentDashSpeed_ + acceleration, kDashMaxSpeed);
+	velocity_ = {direction.x * currentDashSpeed_, direction.y * currentDashSpeed_, 0.0f};
+	worldTransform_.scale_ = {1.0f, 1.15f, 1.0f};
 
-	// 溜め動作用の速度
-	Vector3 velocity{};
-	// 突進用の速度
-	const Vector3 attackVelocity = {0.75f, 0.0f, 0.0f};
-
-	// トランスフォームの値をコピー
-	worldTransformAttack_.translation_ = worldTransform_.translation_;
-	worldTransformAttack_.rotation_ = worldTransform_.rotation_;
-
-	float offset = 0.8f;
-
-	if (lrDirection_ == LRDirection::kRight) {
-		worldTransformAttack_.translation_.x += offset;
-	} else {
-		worldTransformAttack_.translation_.x -= offset;
-	}
-
-	// 向き反転
-	if (lrDirection_ == LRDirection::kLeft) {
-		worldTransformAttack_.scale_.x = -1.0f;
-	} else {
-		worldTransformAttack_.scale_.x = 1.0f;
-	}
-
-	switch (attackPhase_) {
-		// 溜め動作
-	case AttackPhase::kCharge:
-	default: {
-		float t = static_cast<float>(attackParameter_) / static_cast<float>(kTimeCharge);
-		worldTransform_.scale_.z = Easing::EaseOut(t, 1.0f, 0.3f);
-		worldTransform_.scale_.y = Easing::EaseOut(t, 1.0f, 1.6f);
-		// 前進動作へ移行
-		if (attackParameter_ >= kTimeCharge) {
-			attackPhase_ = AttackPhase::kRush;
-			attackParameter_ = 0;
-		}
-		
-		break;
-	}
-
-		// 突進動作
-	case AttackPhase::kRush: {
-		float t = static_cast<float>(attackParameter_) / static_cast<float>(kTimeRush);
-		worldTransform_.scale_.z = Easing::EaseIn(t, 1.3f, 1.0f);
-		worldTransform_.scale_.y = Easing::EaseIn(t, 0.7f, 1.0f);
-		// 右向き？
-		if (lrDirection_ == LRDirection::kRight) {
-			velocity += attackVelocity;
-		} else {
-			velocity -= attackVelocity;
-		}
-
-		// 余韻動作へ移行
-		if (attackParameter_ >= kTimeRush) {
-			attackPhase_ = AttackPhase::kRear;
-			attackParameter_ = 0;
-		}
-
-		break;
-	}
-
-		// 余韻動作
-	case AttackPhase::kRear: {
-		float t = static_cast<float>(attackParameter_) / static_cast<float>(kTimeRear);
-		worldTransform_.scale_.z = Easing::EaseIn(t, 1.3f, 1.0f);
-		worldTransform_.scale_.y = Easing::EaseIn(t, 0.7f, 1.0f);
-
-		// 既定の時間経過で攻撃終了して通常行動に戻す
-		if (attackParameter_ >= kTimeRear) {
-			behaviorRequest_ = Behavior::kRoot;
-		}
-
-		break;
-	}
-	}
-
-	// 衝突情報を初期化
-	info.move_ = velocity;
+	info.move_ = velocity_;
 
 	// マップ衝突チェック
 	CollisionMapTop(info);
@@ -627,33 +488,29 @@ void Player::BehaviorAttackUpdate(CollisionMapInfo& info) {
 	// 判定結果を反映して移動させる
 	MoveResult(info);
 
-	// 天井に接触している場合の処理
-	CollisionCeiling(info);
-
-	// 接地状態の切り替え処理
-	GroundTransition(info);
-
-	// 壁に接触している場合の処理
-	CollisionWall(info);
+	if (info.hitTop_ || info.hitBottom_ || info.hitWall_) {
+		wallHitThisFrame_ = true;
+		velocity_ = {};
+		currentDashSpeed_ = 0.0f;
+		behaviorRequest_ = Behavior::kStuck;
+	}
 
 	// ワールド行列を更新
 	worldMatrix_.Update(worldTransform_);
-	worldMatrix_.Update(worldTransformAttack_);
+}
+
+bool Player::ConsumeWallHit() {
+	const bool hit = wallHitThisFrame_;
+	wallHitThisFrame_ = false;
+	return hit;
 }
 
 void Player::BehaviorKnockBackUpdate() {
-	knockBackParameter_++;
-
-	// 重力
-	if (!onGround_) {
-		velocity_.y -= kGravityAcceleration_;
-		velocity_.y = std::max(velocity_.y, -kLimitFallSpeed_);
-	}
-
-	// 減衰（これで自然に止まる）
+	// 地面状態や重力に依存せず、空中で減衰する。
 	velocity_.x *= 0.9f;
+	velocity_.y *= 0.9f;
 
-	// 衝突処理（Rootと同じ）
+	// 衝突判定処理
 	CollisionMapInfo info;
 	info.move_ = velocity_;
 
@@ -663,88 +520,162 @@ void Player::BehaviorKnockBackUpdate() {
 	CollisionMapLeft(info);
 
 	MoveResult(info);
-	CollisionCeiling(info);
-	GroundTransition(info);
-	CollisionWall(info);
+	if (info.hitTop_) {
+		velocity_.y = std::min(velocity_.y, 0.0f);
+	}
+
+	if (info.hitBottom_) {
+		velocity_.y = std::max(velocity_.y, 0.0f);
+	}
+
+	if (info.hitWall_) {
+		velocity_.x = 0.0f;
+	}
 
 	// 止まったら終了
-	if (std::abs(velocity_.x) < 0.05f && onGround_) {
+	if (std::abs(velocity_.x) < 0.05f && std::abs(velocity_.y) < 0.05f) {
 		behaviorRequest_ = Behavior::kRoot;
 	}
 
 	worldMatrix_.Update(worldTransform_);
 }
 
-void Player::Update() {
-	isKilled_ = false;
+void Player::BehaviorStuckInitialize() {
+	stuckTimer_ = 0;
+	velocity_ = {};
+	worldTransform_.rotation_.z = aimAngle_ - std::numbers::pi_v<float> / 2.0f;
+}
 
-	// 着地と入力が同じフレームになってもジャンプできるよう、入力を短時間保持する
-	if (Input::GetInstance()->TriggerKey(DIK_W)) {
-		jumpBufferTimer_ = kJumpBufferDuration_;
-	} else if (jumpBufferTimer_ > 0) {
-		--jumpBufferTimer_;
+void Player::BehaviorStuckUpdate() {
+	++stuckTimer_;
+	float stuckAngle = aimAngle_ - std::numbers::pi_v<float> / 2.0f;
+	worldTransform_.rotation_.z = stuckAngle + std::sin(static_cast<float>(stuckTimer_) * 0.35f) * 0.04f;
+	worldMatrix_.Update(worldTransform_);
+
+	if (stuckTimer_ >= kWallStuckDuration) {
+		behaviorRequest_ = Behavior::kRoot;
 	}
+}
 
-	// 衝突情報を初期化
-	CollisionMapInfo collisionMapInfo;
 
-	if (isKnockBackRequested_) {
-		behaviorRequest_ = Behavior::kKnockback;
-		// フラグをリセット
-		isKnockBackRequested_ = false;
-	}
-
-	if (behaviorRequest_ != Behavior::kUnknown) {
-		// ふるまいを変更する
-		behavior_ = behaviorRequest_;
-		// 各振る舞いごとの初期化を行う
-		switch (behavior_) {
-		case Behavior::kRoot:
-		default:
-			BehaviorRootInitialize();
-
-			break;
-
-		case Behavior::kAttack:
-			BehaviorAttackInitialize();
-
-			break;
-
-		case Behavior::kKnockback:
-			BehaviorKnockBackInitialize();
-
-			break;
+void Player::UpdateAfterimages() {
+	// 残像の経過を進める
+	for (Afterimage& afterimage : afterimages_) {
+		if (!afterimage.active_) {
+			continue;
 		}
 
-		// ふるまいリクエストをリセット
-		behaviorRequest_ = Behavior::kUnknown;
+		++afterimage.age_;
+		if (afterimage.age_ >= kAfterimageLifetime_) {
+			afterimage.active_ = false;
+			continue;
+		}
+
+		afterimage.worldTransform_.translation_ = afterimage.origin_;
+		afterimage.worldTransform_.translation_.x += afterimage.trailDirection_.x * 0.04f * static_cast<float>(afterimage.age_);
+		afterimage.worldTransform_.translation_.y += afterimage.trailDirection_.y * 0.04f * static_cast<float>(afterimage.age_);
+		worldMatrix_.Update(afterimage.worldTransform_);
 	}
 
-	switch (behavior_) {
-		// 通常行動
-	case Behavior::kRoot:
-	default:
-		BehaviorRootUpdate();
-		break;
-
-		// 攻撃行動
-	case Behavior::kAttack:
-		BehaviorAttackUpdate(collisionMapInfo);
-		break;
-
-	case Behavior::kKnockback:
-		BehaviorKnockBackUpdate();
-		break;
+	// フレームカウント初期化
+	if (!IsAttack()) {
+		afterimageFrameCounter_ = 0;
+		return;
 	}
-} 
 
-void Player::Draw(const Camera& camera) { 
-	 model_->Draw(worldTransform_, camera);
+	++afterimageFrameCounter_;
+	if (afterimageFrameCounter_ < kAfterimageInterval_) {
+		return;
+	}
+
+	afterimageFrameCounter_ = 0;
+
+	Afterimage& afterimage = afterimages_[nextAfterimageIndex_];
+	nextAfterimageIndex_ = (nextAfterimageIndex_ + 1) % kAfterimageCount_;
+	afterimage.worldTransform_.scale_ = worldTransform_.scale_;
+	afterimage.worldTransform_.rotation_ = worldTransform_.rotation_;
+	afterimage.origin_ = worldTransform_.translation_;
+	afterimage.trailDirection_ = {-std::cos(aimAngle_), -std::sin(aimAngle_), 0.0f};
+	afterimage.age_ = 0;
+	afterimage.active_ = true;
+
+	worldMatrix_.Update(afterimage.worldTransform_);
 }
 
-void Player::DrawAttack(const Camera& camera) {
-	// 攻撃中なら、透過テクスチャを使う攻撃モデルを描画
-	if (behavior_ == Behavior::kAttack && attackPhase_ == AttackPhase::kRush) {
-		modelAttack_->Draw(worldTransformAttack_, camera);
+void Player::DrawAfterimages(const Camera& camera) {
+	// 残像を描画
+	for (Afterimage& afterimage : afterimages_) {
+		if (!afterimage.active_) {
+			continue;
+		}
+
+		float fade = 1.0f - static_cast<float>(afterimage.age_) / kAfterimageLifetime_;
+		afterimage.objectColor_.SetColor({0.25f, 0.6f, 1.0f, 0.55f * fade});
+		model_->Draw(afterimage.worldTransform_, camera, &afterimage.objectColor_);
+	}
+
+	if (bubbleModel_ == nullptr) {
+		return;
+	}
+
+	for (DashBubble& bubble : dashBubbles_) {
+		if (!bubble.active_) {
+			continue;
+		}
+
+		const float fade = 1.0f - static_cast<float>(bubble.age_) / kDashBubbleLifetime_;
+		bubble.objectColor_.SetColor({0.68f, 0.92f, 1.0f, 0.72f * fade});
+		bubbleModel_->Draw(bubble.worldTransform_, camera, &bubble.objectColor_);
 	}
 }
+
+void Player::UpdateDashBubbles() {
+	for (DashBubble& bubble : dashBubbles_) {
+		if (!bubble.active_) {
+			continue;
+		}
+
+		++bubble.age_;
+
+		if (bubble.age_ >= kDashBubbleLifetime_) {
+			bubble.active_ = false;
+			continue;
+		}
+
+		const float age = static_cast<float>(bubble.age_);
+		bubble.worldTransform_.translation_ = bubble.origin_;
+		bubble.worldTransform_.translation_.y += age * 0.008f + std::sin(age * 0.35f + bubble.phase_) * 0.025f;
+		const float size = bubble.size_ * (1.0f + age * 0.025f);
+		bubble.worldTransform_.scale_ = {size, size, size};
+		worldMatrix_.Update(bubble.worldTransform_);
+	}
+
+	if (!IsAttack()) {
+		dashBubbleFrameCounter_ = 0;
+		return;
+	}
+
+	if (++dashBubbleFrameCounter_ < kDashBubbleInterval_) {
+		return;
+	}
+
+	dashBubbleFrameCounter_ = 0;
+
+	const Vector3 direction = {std::cos(aimAngle_), std::sin(aimAngle_), 0.0f};
+	const Vector3 perpendicular = {-direction.y, direction.x, 0.0f};
+	DashBubble& bubble = dashBubbles_[nextDashBubbleIndex_];
+	nextDashBubbleIndex_ = (nextDashBubbleIndex_ + 1) % kDashBubbleCount_;
+	const float lateralOffset = (static_cast<float>(nextDashBubbleIndex_ % 3) - 1.0f) * 0.12f;
+	bubble.origin_ = {
+	    worldTransform_.translation_.x - direction.x * 0.55f + perpendicular.x * lateralOffset,
+	    worldTransform_.translation_.y - direction.y * 0.55f + perpendicular.y * lateralOffset,
+	    worldTransform_.translation_.z};
+	bubble.size_ = 0.07f + static_cast<float>(nextDashBubbleIndex_ % 3) * 0.025f;
+	bubble.phase_ = static_cast<float>(nextDashBubbleIndex_) * 0.83f;
+	bubble.age_ = 0;
+	bubble.active_ = true;
+	bubble.worldTransform_.translation_ = bubble.origin_;
+	bubble.worldTransform_.scale_ = {bubble.size_, bubble.size_, bubble.size_};
+	worldMatrix_.Update(bubble.worldTransform_);
+}
+

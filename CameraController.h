@@ -17,6 +17,11 @@ public:
 	void Update();
 
 	void SetTarget(Player* target) { target_ = target; };
+	void SetHitStopFocus(const KamataEngine::Vector3& position, bool enabled) {
+		hitStopFocusPosition_ = position;
+		isHitStopFocusEnabled_ = enabled;
+	}
+	void SetDashShake(bool enabled) { isDashShakeEnabled_ = enabled; }
 	void Reset();
 
 	KamataEngine::Camera& GetCamera() { return camera_; }
@@ -42,15 +47,19 @@ private:
 	Player* target_ = nullptr;
 	KamataEngine::Vector3 targetOffset_ = {0, 0, -15.0f};
 
-	// プレイヤー攻撃時のカメラ揺れ
+	// プレイヤー攻撃時のカメラシェイク
 	KamataEngine::Vector3 cameraShakeOffset_ = {0, 0, 0};
 
-	// カメラ揺れフラグ
+	// カメラシェイクフラグ
 	bool cameraShakeKill_ = false;
+	bool isDashShakeEnabled_ = false;
+	float dashShakeTime_ = 0.0f;
 
 	Rect movableArea_ = {0, 100, 0, 100};
 	// 目標座標
 	KamataEngine::Vector3 targetCoordinates_;
+	KamataEngine::Vector3 hitStopFocusPosition_;
+	bool isHitStopFocusEnabled_ = false;
 
 };
 

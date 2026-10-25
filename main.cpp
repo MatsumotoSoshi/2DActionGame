@@ -2,24 +2,29 @@
 #include "KamataEngine.h"
 #include "GameScene.h"
 #include "TitleScene.h"
+#include "ClearScene.h"
 #include "StageManager.h"
 #include <fstream>  
 #include <string>
+#include <vector>
+#include "StageSelectScene.h"
 using namespace KamataEngine;
 
 // シーン(型)
-enum class Scene { 
-
+enum class Scene {
 	kUnKnown = 0,
-
 	kTitle,
-	kGame 
+	kStageSelect,
+	kGame,
+	kClear
 };
 
 // 現在シーン(型)
 Scene scene = Scene::kUnKnown;
 TitleScene* titleScene = nullptr;
+StageSelectScene* stageSelectScene = nullptr;
 GameScene* gameScene = nullptr;
+ClearScene* clearScene = nullptr;
 StageManager* stageManager = nullptr;
 
 void LoadDebugSettings() {
@@ -31,9 +36,11 @@ void LoadDebugSettings() {
 	if (file.is_open()) {
 		std::string targetStage;
 		if (std::getline(file, targetStage)) {
-			// ステージを設定
-			if (targetStage == "InitialStage") {
-				stageManager->SetCurrentStageIndexByName(targetStage);
+			for (int32_t i = 0; i < stageManager->GetStageCount(); ++i) {
+				if (stageManager->GetStageData(i).name == targetStage) {
+					stageManager->SetCurrentStageIndex(i);
+					break;
+				}
 			}
 		}
 		file.close();
@@ -41,38 +48,73 @@ void LoadDebugSettings() {
 }
 
 void ChangeScene() {
-	switch (scene) { 
-	case Scene::kTitle: 
+	switch (scene) {
+
+	case Scene::kTitle:
 		if (titleScene->IsFinished()) {
-		    // シーン変更
-			scene = Scene::kGame;
-			// 旧シーン開放
+			// タイトルからステージ選択へ
 			delete titleScene;
 			titleScene = nullptr;
-			// 新シーンの生成と初期化
+
+			scene = Scene::kStageSelect;
+			stageSelectScene = new StageSelectScene();
+			stageSelectScene->Initialize(stageManager);
+		}
+		break;
+
+	case Scene::kStageSelect:
+		if (stageSelectScene->IsFinished()) {
+			// 選択したステージでゲーム開始
+			delete stageSelectScene;
+			stageSelectScene = nullptr;
+
+			scene = Scene::kGame;
 			gameScene = new GameScene();
 			gameScene->Initialize(stageManager);
 		}
-
 		break;
 
 	case Scene::kGame:
 		if (gameScene->IsFinished()) {
-			// シーン変更
-			scene = Scene::kTitle;
-			// 旧シーン開放
+			const bool cleared = gameScene->IsCleared();
+
+			std::vector<Vector3> clearPath;
+			if (cleared) {
+				clearPath = gameScene->GetTrajectory().GetPoints();
+			}
+
 			delete gameScene;
 			gameScene = nullptr;
-			// 新シーンの生成と初期化
-			titleScene = new TitleScene();
-			titleScene->Initialize();
-		} else if (gameScene && gameScene->IsReloadRequested()) {
-			// ホットリロード: GameScene を丸ごと作り直す
+
+			if (cleared) {
+				scene = Scene::kClear;
+				clearScene = new ClearScene();
+				clearScene->Initialize(clearPath, stageManager);
+			} else {
+				// ゲーム失敗時はタイトルへ戻る
+				scene = Scene::kTitle;
+				titleScene = new TitleScene();
+				titleScene->Initialize();
+			}
+
+		} else if (gameScene->IsReloadRequested()) {
+			// ホットリロード
 			delete gameScene;
 			gameScene = nullptr;
 
 			gameScene = new GameScene();
 			gameScene->Initialize(stageManager);
+		}
+		break;
+
+	case Scene::kClear:
+		if (clearScene->IsFinished()) {
+			delete clearScene;
+			clearScene = nullptr;
+
+			scene = Scene::kTitle;
+			titleScene = new TitleScene();
+			titleScene->Initialize();
 		}
 		break;
 	}
@@ -84,11 +126,18 @@ void UpdateScene() {
 		titleScene->Update();
 		break;
 
+	case Scene::kStageSelect:
+		stageSelectScene->Update();
+		break;
+
 	case Scene::kGame:
 		gameScene->Update();
 		break;
-	}
 
+	case Scene::kClear:
+		clearScene->Update();
+		break;
+	}
 }
 
 void DrawScene() {
@@ -96,10 +145,18 @@ void DrawScene() {
 	case Scene::kTitle:
 		titleScene->Draw();
 		break;
-	
+
+	case Scene::kStageSelect:
+		stageSelectScene->Draw();
+		break;
+
 	case Scene::kGame:
 		gameScene->Draw();
-	    break;
+		break;
+
+	case Scene::kClear:
+		clearScene->Draw();
+		break;
 	}
 }
 
@@ -109,19 +166,22 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	Initialize(L"LE2C_26_マツモト_ソウシ_2DActionGame");
 
 	DirectXCommon* dxCommon = DirectXCommon::GetInstance();
+#ifdef USE_IMGUI
+	ImGuiManager* imguiManager = ImGuiManager::GetInstance();
+	imguiManager->Initialize();
+#endif
 
-
-	// ゲームシーンのインスタンス生成
-	scene = Scene::kTitle;
-	titleScene = new TitleScene();
-	titleScene->Initialize();
-
-	// デバッグ設定ファイルを読み込み
-	LoadDebugSettings();
 
 	// クラスインスタンスの生成
 	stageManager = new StageManager();
 	stageManager->LoadStageData();
+	// デバッグ設定はステージ一覧の読み込み後に適用する。
+	LoadDebugSettings();
+
+	// ステージ選択画面から開始
+	scene = Scene::kTitle;
+	titleScene = new TitleScene();
+	titleScene->Initialize();
 
 	// メインループ
 	while (true) {
@@ -129,6 +189,9 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 		if (Update()) {
 			break;
 		}
+#ifdef USE_IMGUI
+		imguiManager->Begin();
+#endif
 
 		// シーン切り替え		
 		ChangeScene();
@@ -141,6 +204,10 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 
 		// 現在シーン描画
 		DrawScene();
+#ifdef USE_IMGUI
+		imguiManager->End();
+		imguiManager->Draw();
+#endif
 
 		// 描画終了
 		dxCommon->PostDraw();
@@ -149,8 +216,13 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 
 	// ゲームシーンの解放
 	delete titleScene;
+	delete stageSelectScene;
 	delete gameScene;
+	delete clearScene;
 	delete stageManager;
+#ifdef USE_IMGUI
+	imguiManager->Finalize();
+#endif
 
 	// nullptrの代入
 	titleScene = nullptr;

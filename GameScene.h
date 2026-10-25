@@ -13,6 +13,7 @@
 #include "HitEffect.h"
 #include "ShieldEnemy.h"
 #include "GuardEffect.h"
+#include "Trajectory.h"
 
 class StageManager;
 
@@ -40,6 +41,9 @@ public:
 	~GameScene();
 
 	void GenerateFieldObjects();
+	void OpenGoalGate();
+	void RegisterEnemyDefeated() { score_ += 1000; }
+	const Trajectory& GetTrajectory() const { return trajectory_; }
 
 	// すべての当たり判定を行う
 	void CheckAllCollisions();
@@ -47,6 +51,7 @@ public:
 	// ゲームのフェーズ
 	enum class Phase {
 		kFadeIn,    // フェードイン
+		kTutorial,  // チュートリアル
 		kPlay,      // ゲームプレイ
 		kDeath,     // デス演出
 		kFadeOut,   // フェードアウト
@@ -64,9 +69,11 @@ public:
 
 	// 終了フラグ
 	bool isFinished_ = false;
+	bool isCleared_ = false;
 
 	// デスフラグのゲッター
 	bool IsFinished() const { return isFinished_; }
+	bool IsCleared() const { return isCleared_; }
 
 	// フェード時間
 	float fadeDuration_ = 2.0f;
@@ -75,7 +82,7 @@ public:
 	void CreateHitEffect(const KamataEngine::WorldTransform& worldTransform);
 
 	// ヒットストップを開始
-	void StartHitStop();
+	void StartHitStop(const KamataEngine::Vector3& focusPosition);
 
 	// ガードエフェクトを生成
 	void CreateGuardEffect(const KamataEngine::WorldTransform& worldTransform);
@@ -92,14 +99,20 @@ public:
 	uint32_t hitStopTimer_ = 0;
 	bool isHitStoped_ = false;
 	// ヒットストップ時間
-	static inline const uint32_t kHitStopDuration = 15;
+	static inline const uint32_t kHitStopDuration = 5;
 
 
 private:
+	void DrawFieldEditor();
 	KamataEngine::Model* modelBlock_ = nullptr;
 	KamataEngine::Camera camera_;
 
 	std::vector<std::vector<KamataEngine::WorldTransform*>> worldTransformBlocks_;
+	KamataEngine::WorldTransform goalWorldTransform_;
+	KamataEngine::ObjectColor goalObjectColor_;
+	bool hasGoal_ = false;
+	bool goalGateOpen_ = false;
+	std::vector<MapChipField::IndexSet> goalGateBlocks_;
 
 	bool isDebugCameraActive_ = false;
 	KamataEngine::DebugCamera* debugCamera_ = nullptr;
@@ -118,13 +131,22 @@ private:
 	StageManager* stageDataManager_ = nullptr; 
 	// ステージマネージャ参照用のポインタ
 	StageManager* stageManager_ = nullptr;
+	Trajectory trajectory_;
+	int score_ = 0;
+	uint32_t wallHitCount_ = 0;
+	bool isFieldEditorOpen_ = false;
+	int32_t editorStageIndex_ = 0;
+	int32_t selectedFieldX_ = 0;
+	int32_t selectedFieldY_ = 0;
+	int32_t selectedTileIndex_ = 0;
+	const char* fieldEditorMessage_ = "F1: open field editor";
 
 
 	KamataEngine::Model* modelSkydome_ = nullptr;
 	KamataEngine::Model* modelPlayer_ = nullptr;
 	KamataEngine::Model* modelEnemy_ = nullptr;
 	KamataEngine::Model* modelDeathParticles_ = nullptr;
-	KamataEngine::Model* modelAttack_ = nullptr;
+	KamataEngine::Model* modelBubble_ = nullptr;
 	KamataEngine::Model* modelHitEffect_ = nullptr;
 	KamataEngine::Model* modelShieldEnemy_ = nullptr;
 	KamataEngine::Model* modelGuardEffect_ = nullptr;

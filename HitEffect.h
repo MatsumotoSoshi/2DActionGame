@@ -29,10 +29,13 @@ public:
 	// インスタンス生成と初期化
 	static HitEffect* Create(const KamataEngine::WorldTransform& circleWorldTransform);
 
-	static inline const uint32_t number = 2u;
+	static inline const uint32_t number = 10u;
 
-	// 楕円のワールドトランスフォーム
-	std::array<KamataEngine::WorldTransform, number> ellipseWorldTransform_;
+	// 飛び散る白い破片のワールドトランスフォーム
+	std::array<KamataEngine::WorldTransform, number> particleWorldTransforms_;
+	std::array<float, number> particleAngles_{};
+	std::array<float, number> particleSpeeds_{};
+	std::array<float, number> particleSizes_{};
 
 	enum class State {
 		kSpread,    // スプレッド
@@ -55,7 +58,6 @@ public:
 	static inline const uint32_t kSpreadDuration = 20;
 	static inline const uint32_t kFadeDuration = 20;
 
-	// 
 
 private:
 	// モデル（借りてくる用）

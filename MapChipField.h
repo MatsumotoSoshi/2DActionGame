@@ -7,9 +7,15 @@
 enum class MapChipType { 
 	kBlank,  // 空白
 	kBlock,  // ブロック
+	kGoalWall, // 敵全滅で開くゴール前の壁
 	kPlayer, // プレイヤー
 	kEnemy,  // 敵
+	kGoal,   // ゴール
 };
+
+inline bool IsSolidMapChipType(MapChipType type) {
+	return type == MapChipType::kBlock || type == MapChipType::kGoalWall;
+}
 
 struct MapChipDataUnit {
 	MapChipType type;  // マップチップの種類
@@ -32,8 +38,11 @@ public:
 	void ResetMapChipData();
 
 	void LoadMapChipCsv(const std::string& filePath);
+	bool SaveMapChipCsv(const std::string& filePath) const;
 
 	MapChipType GetMapChipTypeByIndex(uint32_t xIndex, uint32_t yIndex);
+	void SetMapChipTypeByIndex(uint32_t xIndex, uint32_t yIndex, MapChipType type);
+	void SetMapChip(uint32_t xIndex, uint32_t yIndex, MapChipType type, uint8_t subID = 0);
 
 	KamataEngine::Vector3 GetMapChipPositionByIndex(uint32_t xIndex, uint32_t yIndex);
 

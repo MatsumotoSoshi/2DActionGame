@@ -19,6 +19,8 @@ public:
 	/// </summary>
 	void Draw();
 
+	~Fade();
+
 	// フェードの状態
 	enum class Status {
 		None,         // フェードなし
@@ -45,6 +47,8 @@ public:
 	bool IsFinished() const;
 
 private:
-	KamataEngine::Sprite* sprite_ = nullptr;
+	static constexpr float kBlobSize = 2200.0f;
+	KamataEngine::Sprite* inkSprite_ = nullptr;
+	void UpdateInk(float size, float alpha);
 
 };

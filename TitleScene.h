@@ -44,7 +44,9 @@ public:
 	// 現在のフェーズ
 	Phase phase_ = Phase::kFadeIn;
 
+	
 private:
+
 	// 3Dモデル
 	KamataEngine::Model* modelFont_ = nullptr;
 	KamataEngine::Model* modelPlayer_ = nullptr;

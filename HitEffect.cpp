@@ -1,6 +1,8 @@
+#define NOMINMAX
 #include "HitEffect.h"
 #include "Operator.h"
 #include <numbers>
+#include <cmath>
 #include "Random.h"
 #include "Easing.h"
 using namespace KamataEngine;
@@ -28,16 +30,16 @@ void HitEffect::Initialize(const WorldTransform& circleWorldTransform) {
 	color_ = {1, 1, 1, 1};
 
 	Random random;
-	float radius = 1.5f;
-	for (WorldTransform& worldTransform : ellipseWorldTransform_) {
-		worldTransform.scale_ = {0.1f, 1.7f, 1.0f};
-
-		float angle = random.getRotation(-std::numbers::pi_v<float>, std::numbers::pi_v<float>);
-
-		worldTransform.rotation_ = {0.0f, 0.0f, angle};
-		worldTransform.translation_ = circleWorldTransform.translation_;
-
+	for (uint32_t i = 0; i < particleWorldTransforms_.size(); ++i) {
+		WorldTransform& worldTransform = particleWorldTransforms_[i];
 		worldTransform.Initialize();
+		worldTransform.translation_ = circleWorldTransform.translation_;
+		worldTransform.scale_ = {0.08f, 0.08f, 1.0f};
+		particleAngles_[i] = (2.0f * std::numbers::pi_v<float> * static_cast<float>(i) / static_cast<float>(particleWorldTransforms_.size())) +
+		                    random.getRandom(-0.3f, 0.3f);
+		particleSpeeds_[i] = random.getRandom(0.95f, 1.7f);
+		particleSizes_[i] = random.getRandom(0.15f, 0.3f);
+		worldTransform.rotation_ = {0.0f, 0.0f, particleAngles_[i]};
 	}
 
 }
@@ -49,15 +51,26 @@ void HitEffect::Update() {
 	switch (state_) {
 	case State::kSpread: {
 		float t = (float)counter_ / kSpreadDuration;
-
-		// スプレッド中はスケーリングをイージング
-		float scale = Easing::EaseOut(t, 0.1f, 1.0f);
+		
+		// 中心の白い閃光を素早く膨らませる
+		float scale = Easing::EaseOut(t, 0.05f, 0.42f);
 		circleWorldTransform_.scale_ = {scale, scale, scale};
+
+		// 白い破片を放射状に飛び散らせる
+		for (uint32_t i = 0; i < particleWorldTransforms_.size(); ++i) {
+			WorldTransform& particle = particleWorldTransforms_[i];
+			float distance = Easing::EaseOut(t, 0.0f, particleSpeeds_[i]);
+			float size = particleSizes_[i] * (1.0f - 0.25f * t);
+			particle.translation_.x = circleWorldTransform_.translation_.x + std::cos(particleAngles_[i]) * distance;
+			particle.translation_.y = circleWorldTransform_.translation_.y + std::sin(particleAngles_[i]) * distance;
+			particle.scale_ = {size, size, 1.0f};
+		}
 
 		if (counter_ >= kSpreadDuration) {
 			state_ = State::kFade;
 			counter_ = 0;
 		}
+
 		break;
 	}
 
@@ -70,6 +83,7 @@ void HitEffect::Update() {
 		if (counter_ >= kFadeDuration) {
 			state_ = State::kDeath;
 		}
+
 		break;
 	}
 
@@ -81,14 +95,14 @@ void HitEffect::Update() {
 
 	worldMatrix_.Update(circleWorldTransform_);
 
-	for (WorldTransform& worldTransform : ellipseWorldTransform_) {
+	for (WorldTransform& worldTransform : particleWorldTransforms_) {
 		worldMatrix_.Update(worldTransform);
 	}
 }
 
 void HitEffect::Draw(const Camera& camera) {
-	// 楕円を描画
-	for (const WorldTransform& worldTransform : ellipseWorldTransform_) {
+	// 飛び散る破片を描画
+	for (const WorldTransform& worldTransform : particleWorldTransforms_) {
 		model_->Draw(worldTransform, camera, &objectColor_);
 	}
 

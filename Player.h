@@ -3,6 +3,7 @@
 #include "WorldMatrix.h"
 #include "AABB.h"
 #include "Direction.h"
+#include <array>
 
 class MapChipField;
 class WalkEnemy;
@@ -13,7 +14,7 @@ public:
 	/// <summary>
 	/// 初期化
 	/// </summary>
-	void Initialize(KamataEngine::Model* model, KamataEngine::Model* modelAttack, KamataEngine::Camera * camera, const KamataEngine::Vector3& position);
+	void Initialize(KamataEngine::Model* model, KamataEngine::Model* bubbleModel, KamataEngine::Camera * camera, const KamataEngine::Vector3& position);
 
 	/// <summary>
 	/// 移動
@@ -29,44 +30,30 @@ public:
 	/// 描画
 	/// </summary>
 	void Draw(const KamataEngine::Camera& camera);
-	void DrawAttack(const KamataEngine::Camera& camera);
+	void DrawAfterimages(const KamataEngine::Camera& camera);
+	void DrawTrajectory() const;
 
 
 	KamataEngine::Vector3 velocity_ = {};
-	static inline const float kAcceleration = 0.05f;
-	static inline const float kAttenuation = 0.1f;
-	static inline const float kLimitRunSpeed = 0.8f;
+	static inline const float kAimRotationSpeed = 5.0f;
+	static inline const float kDashInitialSpeed = 0.05f;
+	static inline const float kDashAcceleration = 0.0018f;
+	static inline const float kGearAccelerationBonus = 0.0008f;
+	static inline const float kDashMaxSpeed = 0.25f;
+	static inline const uint32_t kMaxGearLevel = 5;
+	static inline const float kAimPreviewDistance = 15.0f;
+	float aimAngle_ = 0.0f;
 
 	LRDirection lrDirection_ = LRDirection::kRight;
 
 	LRDirection GetDirection() const { return lrDirection_; }
 
-	// 旋回開始時の角度
-	float turnFirstRotationY_ = 0.0f;
-	// 旋回タイマー
-	float turnTimer_ = 0.0f;
-
-	// 旋回時間
-	static inline const float kTimeTurn = 0.3f;
-
-	// 接地状態フラグ
-	bool onGround_ = true;
-
-	// 重力加速度
-	static inline const float kGravityAcceleration_ = 0.05f;
-	// 最大落下速度
-	static inline const float kLimitFallSpeed_ = 2.0f;
-	// ジャンプ初速
-	static inline const float kJumpAcceleration_ = 0.65f;
-	// 着地直前の入力も受け付けるジャンプ入力の猶予
-	static inline const uint32_t kJumpBufferDuration_ = 8;
-	uint32_t jumpBufferTimer_ = 0;
-
-	bool landing_ = false;
-
 	const KamataEngine::WorldTransform& GetWorldTransform() const { return worldTransform_; }
+	KamataEngine::Vector3 GetTipPosition() const;
 
 	const KamataEngine::Vector3& GetVelocity() const { return velocity_; }
+	float GetDashSpeed() const { return currentDashSpeed_; }
+	bool ConsumeWallHit();
 
 	void SetMapChipField(MapChipField* mapChipField) { mapChipField_ = mapChipField; }
 
@@ -75,8 +62,8 @@ public:
 	static inline const float kHeight = 0.8f;
 
 	struct CollisionMapInfo {
-		bool hitCeiling_ = false;    // 天井衝突フラグ
-		bool hitGround_ = false;     // 着地フラグ
+		bool hitTop_ = false;        // 上側ブロックとの衝突
+		bool hitBottom_ = false;     // 下側ブロックとの衝突
 		bool hitWall_ = false;       // 壁衝突フラグ
 		KamataEngine::Vector3 move_;               // 移動量
 	};
@@ -107,22 +94,7 @@ public:
 	// 判定結果を反映して移動させる
 	void MoveResult(const CollisionMapInfo& collisionMapInfo);
 
-	// // 天井に接触している場合の処理
-	void CollisionCeiling(const CollisionMapInfo& info);
-
-	// 接地状態の切り替え処理
-	void GroundTransition(const CollisionMapInfo& info); 
-
-	// 着地時の速度減衰率
-	static inline const float kAttenuationLanding = 0.1f;
-
 	static inline const float epsilon = 0.001f;
-
-	// 壁に接触している場合の処理 
-	void CollisionWall(const CollisionMapInfo& info);
-
-	// 壁接触時の速度減衰率
-	static inline const float kAttenuationWall = 0.9f;
 
 	// ワールド座標を取得
 	KamataEngine::Vector3 GetWorldPosition();
@@ -132,6 +104,7 @@ public:
 	// 衝突反応
 	void OnCollision(const WalkEnemy* enemy);
 	void OnCollision(const ShieldEnemy* enemy);
+	void OnEnemyTipCollision();
 
 	// デスフラグ
 	bool isDead_ = false;
@@ -149,6 +122,7 @@ public:
 		kRoot,        // 通常状態
 		kAttack,      // 攻撃中
 		kKnockback,   // ノックバック
+		kStuck,       // 壁に刺さって硬直
 		kUnknown      // 不明
 	};
 
@@ -166,33 +140,12 @@ public:
 	// 攻撃行動初期化
 	void BehaviorAttackInitialize();
 
-	// 攻撃ギミックの経過時間カウンター
-	uint32_t attackParameter_ = 0;
-
 	// 攻撃時間
-	static inline const uint32_t kTimeCharge = 5;
-	static inline const uint32_t kTimeRush = 10;
-	static inline const uint32_t kTimeRear = 10;
-
-	enum class AttackPhase {
-		kCharge ,      // 溜め
-		kRush,         // 突進
-		kRear,         // 余韻
-	};
-
-	AttackPhase attackPhase_ = AttackPhase::kCharge;
+	static inline const uint32_t kWallStuckDuration = 30;
 
 	bool IsAttack() const { return behavior_ == Behavior::kAttack; }
-
-	enum class KnockBackPhase {
-		kBack,         // 吹き飛ばし 
-		kStop          // 停止
-	};
-
-	KnockBackPhase knockBackPhase_ = KnockBackPhase::kBack;
-
-	// ノックバックの経過時間カウンター
-	uint32_t knockBackParameter_ = 0;
+	bool IsDashing() const { return behavior_ == Behavior::kAttack && behaviorRequest_ != Behavior::kStuck; }
+	void GearUp() { if (gearLevel_ < kMaxGearLevel) { ++gearLevel_; } }
 
 	// ノックバックリクエストフラグ
 	bool isKnockBackRequested_ = false;
@@ -202,6 +155,9 @@ public:
 	void BehaviorKnockBackInitialize();
 	// ノックバック更新
 	void BehaviorKnockBackUpdate();
+	void BehaviorStuckInitialize();
+	void BehaviorStuckUpdate();
+	uint32_t stuckTimer_ = 0;
 
 	// 敵討伐フラグ
 	bool isKilled_ = false;
@@ -213,11 +169,50 @@ public:
 	bool isHitStoped_ = false;
 	bool IsHitStop() const { return isHitStoped_; }
 
+	void UpdateAfterimages();
+	void UpdateDashBubbles();
+
 private:
 	KamataEngine::Model* model_ = nullptr;
+	KamataEngine::Model* bubbleModel_ = nullptr;
 	KamataEngine::WorldTransform worldTransform_;
 	WorldMatrix worldMatrix_;
 	MapChipField* mapChipField_ = nullptr;
-	KamataEngine::Model* modelAttack_ = nullptr;
-	KamataEngine::WorldTransform worldTransformAttack_;
+	float currentDashSpeed_ = 0.0f;
+	uint32_t gearLevel_ = 0;
+	bool wallHitThisFrame_ = false;
+
+	struct Afterimage {
+		KamataEngine::WorldTransform worldTransform_;
+		KamataEngine::ObjectColor objectColor_;
+		KamataEngine::Vector3 origin_{};
+		KamataEngine::Vector3 trailDirection_{};
+		uint32_t age_ = 0;
+		bool active_ = false;
+	};
+
+	static inline const uint32_t kAfterimageCount_ = 4;       // 残像数
+	static inline const uint32_t kAfterimageInterval_ = 2;    // 残像生成の間隔
+	static inline const uint32_t kAfterimageLifetime_ = 10;   // 残像生存時間
+	std::array<Afterimage, kAfterimageCount_> afterimages_;
+	uint32_t afterimageFrameCounter_ = 0;
+	uint32_t nextAfterimageIndex_ = 0;
+
+	struct DashBubble {
+		KamataEngine::WorldTransform worldTransform_;
+		KamataEngine::ObjectColor objectColor_;
+		KamataEngine::Vector3 origin_{};
+		float size_ = 0.1f;
+		float phase_ = 0.0f;
+		uint32_t age_ = 0;
+		bool active_ = false;
+	};
+
+	static inline const uint32_t kDashBubbleCount_ = 16;
+	static inline const uint32_t kDashBubbleInterval_ = 2;
+	static inline const uint32_t kDashBubbleLifetime_ = 18;
+	std::array<DashBubble, kDashBubbleCount_> dashBubbles_;
+	uint32_t dashBubbleFrameCounter_ = 0;
+	uint32_t nextDashBubbleIndex_ = 0;
+
 };

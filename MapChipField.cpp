@@ -10,8 +10,10 @@ namespace {
 
 std::map<char, MapChipType> mapChipTypeTable= {
     {'B', MapChipType::kBlock},
+    {'W', MapChipType::kGoalWall},
     {'P', MapChipType::kPlayer},
 	{'E', MapChipType::kEnemy},
+	{'G', MapChipType::kGoal},
 };
 
 }
@@ -76,16 +78,60 @@ void MapChipField::LoadMapChipCsv(const std::string& filePath) {
     }
 }
 
+bool MapChipField::SaveMapChipCsv(const std::string& filePath) const {
+	std::ofstream file(filePath);
+	if (!file.is_open()) {
+		return false;
+	}
+	for (uint32_t y = 0; y < kNumBlockVirtical; ++y) {
+		for (uint32_t x = 0; x < kNumBlockHorizontal; ++x) {
+			if (x != 0) {
+				file << ',';
+			}
+			const MapChipDataUnit& cell = mapChipData_.data[y][x];
+			char typeCode = '0';
+			switch (cell.type) {
+			case MapChipType::kBlock: typeCode = 'B'; break;
+			case MapChipType::kGoalWall: typeCode = 'W'; break;
+			case MapChipType::kPlayer: typeCode = 'P'; break;
+			case MapChipType::kEnemy: typeCode = 'E'; break;
+			case MapChipType::kGoal: typeCode = 'G'; break;
+			case MapChipType::kBlank: default: break;
+			}
+			file << typeCode;
+			if (typeCode != '0') {
+				file << static_cast<uint32_t>(cell.subID);
+			}
+		}
+		file << '\n';
+	}
+	file.flush();
+	return file.good();
+}
+
 MapChipType MapChipField::GetMapChipTypeByIndex(uint32_t xIndex, uint32_t yIndex) {
-	if (xIndex < 0 || kNumBlockHorizontal - 1 < xIndex) {
+	if (xIndex >= kNumBlockHorizontal) {
 		return MapChipType::kBlank;
 	}
 
-    if (yIndex < 0 || kNumBlockVirtical - 1 < yIndex) {
+	if (yIndex >= kNumBlockVirtical) {
 		return MapChipType::kBlank;
     }
 
     return mapChipData_.data[yIndex][xIndex].type;
+}
+
+void MapChipField::SetMapChipTypeByIndex(uint32_t xIndex, uint32_t yIndex, MapChipType type) {
+	SetMapChip(xIndex, yIndex, type, 0);
+}
+
+void MapChipField::SetMapChip(uint32_t xIndex, uint32_t yIndex, MapChipType type, uint8_t subID) {
+	if (xIndex >= kNumBlockHorizontal || yIndex >= kNumBlockVirtical) {
+		return;
+	}
+
+	mapChipData_.data[yIndex][xIndex].type = type;
+	mapChipData_.data[yIndex][xIndex].subID = subID;
 }
 
 Vector3 MapChipField::GetMapChipPositionByIndex(uint32_t xIndex, uint32_t yIndex) {
@@ -94,6 +140,13 @@ Vector3 MapChipField::GetMapChipPositionByIndex(uint32_t xIndex, uint32_t yIndex
 
 MapChipField::IndexSet MapChipField::GetMapChipIndexSetByPosition(const Vector3& position){
     IndexSet indexSet = {};
+	// 範囲外の浮動小数座標を符号なし整数へ変換すると未定義動作になるため、
+	// 先にマップ外を検出して無効なインデックスを返す。
+	if (position.x < -kBlockWidth / 2.0f || position.x >= kBlockWidth * (kNumBlockHorizontal - 0.5f) ||
+	    position.y < -kBlockHeight / 2.0f || position.y >= kBlockHeight * (kNumBlockVirtical - 0.5f)) {
+		return {kNumBlockHorizontal, kNumBlockVirtical};
+	}
+
 	indexSet.xIndex = static_cast<uint32_t>((position.x + kBlockWidth / 2) / kBlockWidth);
 	uint32_t y = static_cast<uint32_t>((position.y + kBlockHeight / 2) / kBlockHeight);
 	indexSet.yIndex = kNumBlockVirtical - 1 - y;
@@ -114,11 +167,13 @@ MapChipField::Rect MapChipField::GetRectByIndex(uint32_t xIndex, uint32_t yIndex
 }
 
 uint8_t MapChipField::GetMapChipSubIDByIndex(uint32_t xIndex, uint32_t yIndex) {
-	if (xIndex < 0 || kNumBlockHorizontal - 1 < xIndex) {
+	if (xIndex >= kNumBlockHorizontal) {
 		return 0;
 	}
-	if (yIndex < 0 || kNumBlockVirtical - 1 < yIndex) {
+
+	if (yIndex >= kNumBlockVirtical) {
 		return 0;
 	}
+
 	return mapChipData_.data[yIndex][xIndex].subID;
 }

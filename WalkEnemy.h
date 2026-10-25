@@ -7,6 +7,7 @@
 
 class Player;
 class GameScene;
+class MapChipField;
 
 /// <summary>
 /// 敵
@@ -30,6 +31,13 @@ public:
 
 	// 歩行の速さ
 	static inline const float kWalkSpeed = 0.01f;
+	static inline const float kDashSpeed = 0.22f;
+	static inline const float kDetectionRange = 7.5f;
+	static inline const float kDetectionResetRange = 9.5f;
+	static inline const float kHomingTurnRate = 0.01f;
+	static inline const uint32_t kWallStuckDuration = 120;
+	static inline const uint32_t kSearchDuration = 180;
+	static inline const float kTipOffset = 0.62f;
 
 	// 速度
 	KamataEngine::Vector3 velocity_;
@@ -56,6 +64,8 @@ public:
 	KamataEngine::Vector3 GetWorldPosition();
 
 	AABB GetAABB();
+	KamataEngine::Vector3 GetTipPosition() const;
+	bool IsDashing() const;
 
 	// 衝突反応
 	void onCollision(const Player* player);
@@ -68,6 +78,9 @@ public:
 
 	enum class Behavior {
 		kWalk,         // 歩行
+		kDash,         // 突進
+		kStuck,        // 壁に刺さった状態
+		kSearch,       // 刺さった後の索敵
 	    kDeath,        // デス演出
 	};
 
@@ -81,11 +94,15 @@ public:
 	uint32_t animationTimer_ = 0;
 
 	void SetGameScene(GameScene* gameScene) { gameScene_ = gameScene; }
+	void SetTarget(Player* target) { target_ = target; }
+	void SetMapChipField(MapChipField* mapChipField) { mapChipField_ = mapChipField; }
 
 
 	bool isCollisionDisabled_ = false;
 
-	bool IsCollisionDisabled() const { return isCollisionDisabled_; }
+	bool IsCollisionDisabled() const {
+		return isCollisionDisabled_ || behavior_ == Behavior::kDeath || behaviorRequest_ == Behavior::kDeath;
+	}
 
 
 private:
@@ -95,4 +112,11 @@ private:
 	WorldMatrix worldMatrix_;
 
 	GameScene* gameScene_ = nullptr;
+	Player* target_ = nullptr;
+	MapChipField* mapChipField_ = nullptr;
+	float aimAngle_ = 0.0f;
+	uint32_t stuckTimer_ = 0;
+	uint32_t searchTimer_ = 0;
+	bool canCharge_ = true;
+	bool IsBlockedAt(const KamataEngine::Vector3& position) const;
 };
