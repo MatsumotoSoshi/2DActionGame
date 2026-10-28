@@ -292,6 +292,7 @@
     <ClInclude Include="DeathParticles.h" />
     <ClInclude Include="Direction.h" />
     <ClInclude Include="Easing.h" />
+    <ClInclude Include="GameAudio.h" />
     <ClInclude Include="StageManager.h" />
     <ClInclude Include="StageSelectScene.h" />
     <ClInclude Include="Trajectory.h" />

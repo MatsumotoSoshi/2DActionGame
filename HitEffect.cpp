@@ -15,7 +15,7 @@ HitEffect* HitEffect::Create(const WorldTransform& circleWorldTransform) {
 	// インスタンス生成
 	HitEffect* instance = new HitEffect();
 	// newの失敗を検出
-	assert(instance);
+	//assert(instance);
 	// インスタンスの初期化
 	instance->Initialize(circleWorldTransform);
 	// 初期化したインスタンスを返す

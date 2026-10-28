@@ -2,6 +2,7 @@
 #include "KamataEngine.h"
 #include "WorldMatrix.h"
 #include "Fade.h"
+#include "Skydome.h"
 
 class TitleScene 
 {
@@ -58,4 +59,10 @@ private:
 	
 	WorldMatrix worldMatrix_;
 	Fade* fade_ = nullptr;
+
+	// タイトル下部のSPACEキー
+	KamataEngine::Sprite* spriteSpace_ = nullptr;
+
+	KamataEngine::Model* modelSkydome_ = nullptr;
+	Skydome skydome_;
 };

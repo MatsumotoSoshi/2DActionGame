@@ -1,7 +1,8 @@
 #define NOMINMAX
 #include "CameraController.h"
-#include <algorithm>
 #include "Operator.h"
+#include <algorithm>
+#include <cmath>
 using namespace KamataEngine;
 
 Vector3 Lerp(const Vector3& a, const Vector3& b, float t) {
@@ -12,11 +13,14 @@ Vector3 Lerp(const Vector3& a, const Vector3& b, float t) {
 	return result;
 }
 
-void CameraController::Initialize() { 
-	camera_.Initialize();
-}
+void CameraController::Initialize() { camera_.Initialize(); }
 
 void CameraController::Update() {
+	if (target_ == nullptr) {
+		camera_.UpdateMatrix();
+		return;
+	}
+
 	// 通常時はプレイヤーを追従し、ヒットストップ中はプレイヤーと敵の中間へ寄せる
 	const WorldTransform& targetWorldTransform = target_->GetWorldTransform();
 	if (isHitStopFocusEnabled_) {
@@ -29,9 +33,9 @@ void CameraController::Update() {
 	}
 
 	// 座標補間によりゆったり追従
-	camera_.translation_ = Lerp(camera_.translation_, targetCoordinates_, kInterpolationRate); 
+	camera_.translation_ = Lerp(camera_.translation_, targetCoordinates_, kInterpolationRate);
 
-	// 移動範囲制限 
+	// 移動範囲制限
 	float halfWidth = 12.0f;
 	float halfHeight = 6.0f;
 
@@ -52,33 +56,36 @@ void CameraController::Update() {
 
 		if (minX <= maxX) {
 			camera_.translation_.x = std::clamp(camera_.translation_.x, minX, maxX);
+		} else {
+			camera_.translation_.x = (movableArea_.left + movableArea_.right) * 0.5f;
 		}
 
 		if (minY <= maxY) {
 			camera_.translation_.y = std::clamp(camera_.translation_.y, minY, maxY);
+		} else {
+			camera_.translation_.y = (movableArea_.bottom + movableArea_.top) * 0.5f;
 		}
 	}
-
-	
 
 	// 敵死亡時のカメラシェイクを反映
 	if (target_->IsKill()) {
 		cameraShakeKill_ = true;
 	}
-	
+
 	// ヒットストップ時にはシェイクを行わない
 	if (isHitStopFocusEnabled_) {
+		camera_.UpdateMatrix();
 		return;
 
 	} else {
-		
+
 		// 敵討伐時にカメラをシェイク
 		if (cameraShakeKill_) {
 			// シェイクの強さ
-			float shakeStrength = 0.8f;
+			float shakeStrength = 0.5f;
 
 			// シェイクの周期
-			float shakeFrequency = 30.0f;
+			float shakeFrequency = 5.0f;
 
 			// シェイクの時間経過
 			static float shakeTime = 0.0f;
@@ -108,17 +115,21 @@ void CameraController::Update() {
 		dashShakeTime_ = 0.0f;
 	}
 
-	
 	// 行列を更新する
 	camera_.UpdateMatrix();
 }
 
-void CameraController::Reset() { 
+void CameraController::Reset() {
+	if (target_ == nullptr) {
+		camera_.UpdateMatrix();
+		return;
+	}
+
 	// 追従対象のワールドトランスフォームを参照
 	const WorldTransform& targetWorldTransform = target_->GetWorldTransform();
 	// 追従対象とオフセットからカメラの座標を計算
 	camera_.translation_.x = targetWorldTransform.translation_.x + targetOffset_.x;
 	camera_.translation_.y = targetWorldTransform.translation_.y + targetOffset_.y;
 	camera_.translation_.z = targetWorldTransform.translation_.z + targetOffset_.z;
+	Update();
 }
-

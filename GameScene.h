@@ -42,7 +42,7 @@ public:
 
 	void GenerateFieldObjects();
 	void OpenGoalGate();
-	void RegisterEnemyDefeated() { score_ += 1000; }
+	void RegisterEnemyDefeated();
 	const Trajectory& GetTrajectory() const { return trajectory_; }
 
 	// すべての当たり判定を行う
@@ -50,13 +50,13 @@ public:
 
 	// ゲームのフェーズ
 	enum class Phase {
-		kFadeIn,    // フェードイン
-		kTutorial,  // チュートリアル
-		kPlay,      // ゲームプレイ
-		kDeath,     // デス演出
-		kFadeOut,   // フェードアウト
-		kTitle,     // タイトルシーン
-		kClear,     // クリアシーン
+		kFadeIn,   // フェードイン
+		kTutorial, // チュートリアル
+		kPlay,     // ゲームプレイ
+		kDeath,    // デス演出
+		kFadeOut,  // フェードアウト
+		kTitle,    // タイトルシーン
+		kClear,    // クリアシーン
 	};
 
 	// ゲームの現在フェーズ
@@ -101,11 +101,28 @@ public:
 	// ヒットストップ時間
 	static inline const uint32_t kHitStopDuration = 5;
 
+	uint32_t GetWallHitCount() const { return wallHitCount_; }
+
+	float GetTotalMoveDistance() const { return totalMoveDistance_; }
+
+	void RecordClearStats();
+
+	float totalMoveDistance_ = 0.0f;
+	KamataEngine::Vector3 previousClearPosition_{};
+
+	// 通常ブロックとゴール前の壁を描画
+	void DrawMapBlocks();
+
+	
+	void DrawDashSpace();
 
 private:
 	void DrawFieldEditor();
 	KamataEngine::Model* modelBlock_ = nullptr;
 	KamataEngine::Camera camera_;
+
+	// ゴール前の壁専用モデル
+	KamataEngine::Model* modelGoalWall_ = nullptr;
 
 	std::vector<std::vector<KamataEngine::WorldTransform*>> worldTransformBlocks_;
 	KamataEngine::WorldTransform goalWorldTransform_;
@@ -140,6 +157,9 @@ private:
 	int32_t selectedFieldY_ = 0;
 	int32_t selectedTileIndex_ = 0;
 	const char* fieldEditorMessage_ = "F1: open field editor";
+
+	// プレイヤー頭上のSPACE表示
+	KamataEngine::Sprite* spriteDashSpace_ = nullptr;
 
 
 	KamataEngine::Model* modelSkydome_ = nullptr;

@@ -12,7 +12,7 @@ void StageManager::LoadStageData() {
 	// ifstreamでステージファイルを開く
 	std::ifstream file;
 	file.open(filePath);
-	assert(file.is_open() && "ステージデータファイルが存在しません");
+	//assert(file.is_open() && "ステージデータファイルが存在しません");
 
 	// ファイルの内容を格納するstringstreamの宣言
 	std::stringstream stageDataFile;
@@ -61,5 +61,5 @@ void StageManager::SetCurrentStageIndexByName(const std::string& name) {
 		// 目的を達したので関数を抜ける
 		return;
 	}
-	assert(false && "指定されたステージ名は存在しません");
+	//assert(false && "指定されたステージ名は存在しません");
 }

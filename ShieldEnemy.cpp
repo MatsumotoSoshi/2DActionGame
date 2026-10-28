@@ -32,9 +32,16 @@ Vector3 ShieldEnemy::GetWorldPosition() {
 
 AABB ShieldEnemy::GetAABB() {
 	const Vector3 position = GetWorldPosition();
+
+	// 各方向に0.05ずつ判定を広げる
+	constexpr float kHitPadding = 0.05f;
+	const float halfWidth = kWidthHalf + kHitPadding;
+	const float halfHeight = kHeightHalf + kHitPadding;
+
 	AABB aabb;
-	aabb.min = {position.x - kWidthHalf, position.y - kHeightHalf, position.z - kWidthHalf};
-	aabb.max = {position.x + kWidthHalf, position.y + kHeightHalf, position.z + kWidthHalf};
+	aabb.min = {position.x - halfWidth, position.y - halfHeight, position.z - kWidthHalf};
+	aabb.max = {position.x + halfWidth, position.y + halfHeight, position.z + kWidthHalf};
+
 	return aabb;
 }
 

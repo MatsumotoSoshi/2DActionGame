@@ -7,14 +7,17 @@
 #include "MapChipField.h"
 #include "ShieldEnemy.h"
 #include "Operator.h"
+#include "GameAudio.h"
 using namespace KamataEngine;
 
-void Player::Initialize(Model* model, Model* bubbleModel, Camera* camera, const Vector3& position) {
+void Player::Initialize(Model* model, Model* bubbleModel, const Vector3& position) {
 	model_ = model;
+	
 	bubbleModel_ = bubbleModel;
 
 	worldTransform_.Initialize();
 	worldTransform_.translation_ = position;
+	// 目を画面手前に保ち、頭を予測線の方向へ向ける
 	worldTransform_.rotation_ = {0.0f, 0.0f, aimAngle_ - std::numbers::pi_v<float> / 2.0f};
 	// Draw may be called before the first Update (for example during fade-in).
 	// Transfer a valid world matrix as soon as the transform is initialized.
@@ -125,7 +128,7 @@ void Player::DrawTrajectory() const {
 		bool hitBlock = false;
 		for (float xSign : {-1.0f, 1.0f}) {
 			for (float ySign : {-1.0f, 1.0f}) {
-				const Vector3 corner = {sample.x + xSign * kWidthHalf, sample.y + ySign * kHeightHalf, sample.z};
+				const Vector3 corner = {sample.x + xSign * kWallWidthHalf, sample.y + ySign * kWallHeightHalf, sample.z};
 				const MapChipField::IndexSet index = mapChipField_->GetMapChipIndexSetByPosition(corner);
 				if (IsSolidMapChipType(mapChipField_->GetMapChipTypeByIndex(index.xIndex, index.yIndex))) {
 					hitBlock = true;
@@ -146,29 +149,32 @@ void Player::DrawTrajectory() const {
 	PrimitiveDrawer::GetInstance()->DrawLine3d(start, end, {0.2f, 0.8f, 1.0f, 0.9f});
 }
 
-void Player::Move() {
+void Player::Move(float rotationSpeed) {
 	const bool turnLeft = Input::GetInstance()->PushKey(DIK_A);
 	const bool turnRight = Input::GetInstance()->PushKey(DIK_D);
+
 	if (turnLeft != turnRight) {
 		const float turnDirection = turnLeft ? 1.0f : -1.0f;
-		aimAngle_ += turnDirection * kAimRotationSpeed / 60.0f;
+		aimAngle_ += turnDirection * rotationSpeed / 60.0f;
 	}
 
-	// 2Dの移動面（XY）に合わせ、Z軸回転だけで進行方向を表す。
+	// 回転を進行方向に反映
 	worldTransform_.rotation_ = {0.0f, 0.0f, aimAngle_ - std::numbers::pi_v<float> / 2.0f};
+
 	lrDirection_ = std::cos(aimAngle_) >= 0.0f ? LRDirection::kRight : LRDirection::kLeft;
+
 	velocity_ = {};
 }
 
-Vector3 Player::CornerPosition(const Vector3& center, Corner corner ){
-	Vector3 offSetTable[kNumCorner] = {
-	    {+kWidth / 2.0f, -kHeight / 2.0f, 0}, //  kRightBottom
-	    {-kWidth / 2.0f, -kHeight / 2.0f, 0}, //  kLeftBottom
-	    {+kWidth / 2.0f, +kHeight / 2.0f, 0}, //  kRightTop
-	    {-kWidth / 2.0f, +kHeight / 2.0f, 0}, //  kLeftTop
-	};
-	
-	return center + offSetTable[static_cast<uint32_t>(corner)];
+Vector3 Player::CornerPosition(const Vector3& center, Corner corner) {
+	const Vector3 offsetTable[kNumCorner] = {
+	    {+kWallWidthHalf, -kWallHeightHalf, 0.0f},
+        {-kWallWidthHalf, -kWallHeightHalf, 0.0f},
+        {+kWallWidthHalf, +kWallHeightHalf, 0.0f},
+        {-kWallWidthHalf, +kWallHeightHalf, 0.0f}
+    };
+
+	return center + offsetTable[static_cast<uint32_t>(corner)];
 }
 
 Vector3 Player::GetWorldPosition() {
@@ -264,7 +270,7 @@ void Player::CollisionMapTop(CollisionMapInfo& info) {
 
 			// めり込み先ブロックの範囲矩形
 			MapChipField::Rect rect = mapChipField_->GetRectByIndex(indexSet.xIndex, indexSet.yIndex);
-			float yMove = (rect.bottom - worldTransform_.translation_.y) - (kHeightHalf + kBlank);
+			float yMove = (rect.bottom - worldTransform_.translation_.y) - (kWallHeightHalf + kBlank);
 			info.move_.y = std::max(0.0f, yMove);
 
 			// 天井に当たったことを記録する
@@ -319,7 +325,7 @@ void Player::CollisionMapBottom(CollisionMapInfo& info) {
 
 			// めり込み先ブロックの範囲矩形
 			MapChipField::Rect rect = mapChipField_->GetRectByIndex(indexSet.xIndex, indexSet.yIndex);
-			float yMove = (rect.top - worldTransform_.translation_.y) + (kHeightHalf + kBlank);
+			float yMove = (rect.top - worldTransform_.translation_.y) + (kWallHeightHalf + kBlank);
 			info.move_.y = std::min(0.0f, yMove);
 
 			// 地面に当たったことを記録する
@@ -374,7 +380,7 @@ void Player::CollisionMapRight(CollisionMapInfo & info) {
 
 			// めり込み先ブロックの範囲矩形
 			MapChipField::Rect rect = mapChipField_->GetRectByIndex(indexSet.xIndex, indexSet.yIndex);
-			float xMove = (rect.left - worldTransform_.translation_.x) - (kWidthHalf + kBlank);
+			float xMove = (rect.left - worldTransform_.translation_.x) - (kWallWidthHalf + kBlank);
 			info.move_.x = std::min(0.0f, xMove);
 
 			// 壁に当たったことを記録する
@@ -427,7 +433,7 @@ void Player::CollisionMapLeft(CollisionMapInfo& info) {
 		if (indexSetNow.xIndex != indexSet.xIndex) {
 			// めり込み先ブロックの範囲矩形
 			MapChipField::Rect rect = mapChipField_->GetRectByIndex(indexSet.xIndex, indexSet.yIndex);
-			float xMove = (rect.right - worldTransform_.translation_.x) + (kWidthHalf + kBlank);
+			float xMove = (rect.right - worldTransform_.translation_.x) + (kWallWidthHalf + kBlank);
 			info.move_.x = std::max(0.0f, xMove);
 			// 壁に当たったことを記録する
 			info.hitWall_ = true;
@@ -446,9 +452,13 @@ void Player::BehaviorRootInitialize() {
 }
 
 void Player::BehaviorAttackInitialize() {
-	// ブロックに当たるまで突進を継続する。
+	// ダッシュ状態に入った瞬間だけ鳴らす
+	GameAudio::GetInstance().PlayDash();
+
 	currentDashSpeed_ = kDashInitialSpeed;
+
 	const Vector3 direction = {std::cos(aimAngle_), std::sin(aimAngle_), 0.0f};
+
 	velocity_ = {direction.x * currentDashSpeed_, direction.y * currentDashSpeed_, 0.0f};
 }
 
@@ -459,7 +469,7 @@ void Player::BehaviorKnockBackInitialize() {
 
 void Player::BehaviorRootUpdate() {
 	if (!isDead_) {
-		Move();
+		Move(kAimRotationSpeed);
 		if (Input::GetInstance()->TriggerKey(DIK_SPACE)) {
 			behaviorRequest_ = Behavior::kAttack;
 		}
@@ -470,7 +480,7 @@ void Player::BehaviorRootUpdate() {
 
 void Player::BehaviorAttackUpdate(CollisionMapInfo& info) {
 	wallHitThisFrame_ = false;
-	Move();
+	Move(kDashRotationSpeed);
 	const Vector3 direction = {std::cos(aimAngle_), std::sin(aimAngle_), 0.0f};
 	const float acceleration = kDashAcceleration + gearLevel_ * kGearAccelerationBonus;
 	currentDashSpeed_ = std::min(currentDashSpeed_ + acceleration, kDashMaxSpeed);
@@ -543,13 +553,20 @@ void Player::BehaviorKnockBackUpdate() {
 void Player::BehaviorStuckInitialize() {
 	stuckTimer_ = 0;
 	velocity_ = {};
-	worldTransform_.rotation_.z = aimAngle_ - std::numbers::pi_v<float> / 2.0f;
+
+	worldTransform_.rotation_ = {0.0f, 0.0f, aimAngle_ - std::numbers::pi_v<float> / 2.0f};
+
+	worldMatrix_.Update(worldTransform_);
 }
 
 void Player::BehaviorStuckUpdate() {
 	++stuckTimer_;
-	float stuckAngle = aimAngle_ - std::numbers::pi_v<float> / 2.0f;
-	worldTransform_.rotation_.z = stuckAngle + std::sin(static_cast<float>(stuckTimer_) * 0.35f) * 0.04f;
+
+	const float wobble = std::sin(static_cast<float>(stuckTimer_) * 0.35f) * 0.04f;
+
+	// 画面内で小さく揺らす。目は手前を向いたまま。
+	worldTransform_.rotation_ = {0.0f, 0.0f, aimAngle_ - std::numbers::pi_v<float> / 2.0f + wobble};
+
 	worldMatrix_.Update(worldTransform_);
 
 	if (stuckTimer_ >= kWallStuckDuration) {

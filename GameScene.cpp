@@ -3,12 +3,60 @@
 #include <algorithm>
 #include <cmath>
 #include <string>
+#include <stdexcept>
+#include "GameAudio.h"
 #ifdef USE_IMGUI
 #include <imgui.h>
 #endif
 using namespace KamataEngine;
 
 namespace {
+namespace {
+
+// ワールド座標→ビュー座標→クリップ座標の変換に使用
+Vector4 TransformUiPoint(const Vector4& v, const Matrix4x4& m) {
+	return {
+	    v.x * m.m[0][0] + v.y * m.m[1][0] + v.z * m.m[2][0] + v.w * m.m[3][0],
+
+	    v.x * m.m[0][1] + v.y * m.m[1][1] + v.z * m.m[2][1] + v.w * m.m[3][1],
+
+	    v.x * m.m[0][2] + v.y * m.m[1][2] + v.z * m.m[2][2] + v.w * m.m[3][2],
+
+	    v.x * m.m[0][3] + v.y * m.m[1][3] + v.z * m.m[2][3] + v.w * m.m[3][3]};
+}
+
+bool TryWorldToUi(const Vector3& position, const Camera& camera, Vector2& screen) {
+
+	const Vector4 world = {position.x, position.y, position.z, 1.0f};
+
+	const Vector4 view = TransformUiPoint(world, camera.matView);
+
+	const Vector4 clip = TransformUiPoint(view, camera.matProjection);
+
+	if (!std::isfinite(clip.x) || !std::isfinite(clip.y) || !std::isfinite(clip.z) || !std::isfinite(clip.w) || clip.w <= 0.0001f) {
+		return false;
+	}
+
+	// カメラの描画範囲外
+	if (clip.z < 0.0f || clip.z > clip.w) {
+		return false;
+	}
+
+	const float x = clip.x / clip.w;
+	const float y = clip.y / clip.w;
+
+	if (x < -1.0f || x > 1.0f || y < -1.0f || y > 1.0f) {
+		return false;
+	}
+
+	screen.x = (x + 1.0f) * 0.5f * 1280.0f;
+	screen.y = (1.0f - y) * 0.5f * 720.0f;
+
+	return true;
+}
+
+} // namespace
+
 constexpr float kTipCollisionRadius = 0.12f;
 
 bool TipTouchesAABB(const Vector3& tip, const AABB& target) {
@@ -55,7 +103,7 @@ void GameScene::GenerateFieldObjects() {
 				player_ = new Player();
 				Vector3 playerPosition = mapChipField_->GetMapChipPositionByIndex(j, i);
 				
-				player_->Initialize(modelPlayer_, modelBubble_, &cameraController_.GetCamera(), playerPosition);
+				player_->Initialize(modelPlayer_, modelBubble_, playerPosition);
 
 				player_->SetMapChipField(mapChipField_);
 				break;
@@ -102,13 +150,30 @@ void GameScene::GenerateFieldObjects() {
 }
 
 void GameScene::OpenGoalGate() {
-	if (goalGateOpen_ || !hasGoal_ || !enemies_.empty() || !shieldEnemies_.empty()) {
+	if (goalGateOpen_ || !hasGoal_) {
 		return;
 	}
 
+	// 生きている通常敵が残っていれば開かない
+	for (const WalkEnemy* enemy : enemies_) {
+		if (!enemy->IsDefeated()) {
+			return;
+		}
+	}
+
+	// 生きているシールド敵が残っていれば開かない
+	for (const ShieldEnemy* enemy : shieldEnemies_) {
+		if (!enemy->IsDefeated()) {
+			return;
+		}
+	}
+
+	// 全員倒されていれば、壁の当たり判定と描画を即座に消す
 	for (const MapChipField::IndexSet& gate : goalGateBlocks_) {
 		mapChipField_->SetMapChipTypeByIndex(gate.xIndex, gate.yIndex, MapChipType::kBlank);
+
 		WorldTransform*& gateTransform = worldTransformBlocks_[gate.yIndex][gate.xIndex];
+
 		delete gateTransform;
 		gateTransform = nullptr;
 	}
@@ -126,39 +191,45 @@ void GameScene::CreateGuardEffect(const KamataEngine::WorldTransform& worldTrans
 	guardEffects_.push_back(newHitEffect);
 }
 
-void GameScene::Initialize(StageManager* stageDataManager_) { 
-	 phase_ = Phase::kFadeIn;
+void GameScene::Initialize(StageManager* stageDataManager) { 
+	phase_ = Phase::kFadeIn;
 
-	 camera_.farZ = 5000.0f;
+	camera_.farZ = 5000.0f;
 
-	 // 引数をメンバ変数に記録する
-	 stageManager_ = stageDataManager_;
+	// 引数をメンバ変数に記録する
+	stageManager_ = stageDataManager;
 	editorStageIndex_ = stageManager_->GetCurrentStageIndex();
 
 	// カメラ初期化
 	camera_.Initialize();
 	goalObjectColor_.Initialize();
-	goalObjectColor_.SetColor({0.25f, 0.9f, 1.0f, 1.0f});
 
 	// 3Dモデル生成
     modelBlock_ = Model::CreateFromOBJ("block");
+	modelGoalWall_ = Model::CreateFromOBJ("breakableBlock");
     modelSkydome_ = Model::CreateFromOBJ("SkyDome");
     modelPlayer_ = Model::CreateFromOBJ("Player");
-	modelEnemy_ = Model::CreateFromOBJ("enemy");
+	modelEnemy_ = Model::CreateFromOBJ("target");
 	modelDeathParticles_ = Model::CreateFromOBJ("deathParticle");
 	modelBubble_ = Model::CreateSphere(8, 8);
 	modelHitEffect_ = Model::CreateFromOBJ("particle");
-	modelShieldEnemy_ = Model::CreateFromOBJ("shieldEnemy");
 	HitEffect::SetModel(modelHitEffect_);
 	HitEffect::SetCamera(&camera_);
-	modelGuardEffect_ = Model::CreateFromOBJ("ring");
-	GuardEffect::SetModel(modelGuardEffect_);
 	GuardEffect::SetCamera(&camera_);
 
     // デバッグカメラ生成
     debugCamera_ = new DebugCamera(1280, 720);
 
     mapChipField_ = new MapChipField;
+
+	// SPACE画像は初期化時に読み込む
+	delete spriteDashSpace_;
+	spriteDashSpace_ = nullptr;
+
+	spriteDashSpace_ = Sprite::Create(TextureManager::Load("ui/keys/keySPACE.png"), {0.0f, 0.0f});
+
+	// 元画像320×128の縦横比を維持
+	spriteDashSpace_->SetSize({96.0f, 38.4f});
     
 	// 現在のステージを変更
 	const StageManager::StageData& stageData = stageManager_->GetCurrentStageData();
@@ -167,9 +238,28 @@ void GameScene::Initialize(StageManager* stageDataManager_) {
 	// ステージファイルの読み込み
 	mapChipField_->LoadMapChipCsv(stageFileName);
 
+	uint32_t playerCount = 0;
+
+	for (uint32_t y = 0; y < mapChipField_->GetNumBlockVirtical(); ++y) {
+		for (uint32_t x = 0; x < mapChipField_->GetNumBlockHorizontal(); ++x) {
+			if (mapChipField_->GetMapChipTypeByIndex(x, y) == MapChipType::kPlayer) {
+				++playerCount;
+			}
+		}
+	}
+
+	if (playerCount != 1) {
+		throw std::runtime_error("Stage must contain exactly one P: " + stageFileName);
+	}
+
     // カメラコントローラ初期化
     cameraController_.Initialize();
 	GenerateFieldObjects();
+
+	wallHitCount_ = 0;
+	totalMoveDistance_ = 0.0f;
+	previousClearPosition_ = player_->GetWorldTransform().translation_;
+
 	for (WalkEnemy* enemy : enemies_) {
 		enemy->SetTarget(player_);
 	}
@@ -183,18 +273,22 @@ void GameScene::Initialize(StageManager* stageDataManager_) {
 		trajectory_.RecordPoint(player_->GetWorldTransform().translation_);
 	}
 
-    cameraController_.SetTarget(player_);
-    cameraController_.Reset();
+    // マップの左下と右上の外周を取得
+	const auto leftBottom = mapChipField_->GetRectByIndex(0, mapChipField_->GetNumBlockVirtical() - 1);
 
-	// 移動範囲の指定
+	const auto rightTop = mapChipField_->GetRectByIndex(mapChipField_->GetNumBlockHorizontal() - 1, 0);
+
+	// CSVのサイズからカメラの移動範囲を設定
 	CameraController::Rect area;
+	area.left = leftBottom.left;
+	area.right = rightTop.right;
+	area.bottom = leftBottom.bottom;
+	area.top = rightTop.top;
 
-	area.left = 0.0f;
-	area.right = 2000.0f; 
-	area.bottom = 0.0f;
-	area.top = 1000.0f;
-
+	// 範囲を設定してから初期位置を決める
 	cameraController_.SetMovableArea(area);
+	cameraController_.SetTarget(player_);
+	cameraController_.Reset();
 
     // PrimitiveDrawerにカメラを渡す
     PrimitiveDrawer::GetInstance()->SetCamera(
@@ -208,6 +302,7 @@ void GameScene::Initialize(StageManager* stageDataManager_) {
 	fade_->Initialize();
 	fade_->Start(Fade::Status::FadeIn, fadeDuration_);
 
+	GameAudio::GetInstance().PlayBgm(GameAudio::Bgm::kGame);
 }
 
 void GameScene::CheckAllCollisions() {
@@ -222,10 +317,12 @@ void GameScene::CheckAllCollisions() {
 		if (enemy->IsCollisionDisabled()) {
 			continue;
 		}
+
 		if (player_->IsAttack() && TipTouchesAABB(playerTip, enemy->GetAABB())) {
 			player_->OnCollision(enemy);
 			enemy->onCollision(player_);
 		}
+
 		if (!player_->IsDead() && enemy->IsDashing() && TipTouchesAABB(enemy->GetTipPosition(), playerBody)) {
 			player_->OnEnemyTipCollision();
 		}
@@ -235,10 +332,12 @@ void GameScene::CheckAllCollisions() {
 		if (enemy->IsCollisionDisabled()) {
 			continue;
 		}
+
 		if (!enemy->IsInvincible(player_->GetDashSpeed()) && player_->IsAttack() && TipTouchesAABB(playerTip, enemy->GetAABB())) {
 			player_->OnCollision(enemy);
 			enemy->onCollision(player_);
 		}
+
 		if (!player_->IsDead() && enemy->IsDashing() && TipTouchesAABB(enemy->GetTipPosition(), playerBody)) {
 			player_->OnEnemyTipCollision();
 		}
@@ -372,27 +471,22 @@ void GameScene::Update() {
 
 	switch (phase_) {
 	case Phase::kFadeIn:
+		// フェード中はplayer_->Update()を呼ばない。
+		// 移動・方向変更・ダッシュ入力を受け付けない。
 
-		// 自キャラの更新
-		player_->Update();
-		if (player_->ConsumeWallHit()) {
-			++wallHitCount_;
-			score_ = max(0, score_ - 100);
-		}
-
-		// フェードインの処理
 		fade_->Update();
 
 		if (fade_->IsFinished()) {
 			phase_ = Phase::kPlay;
 		}
-
 		break;
 
 	case Phase::kPlay:
 		// ゲームフェーズの処理
 		// 自キャラの更新
 		player_->Update();
+		RecordClearStats();
+
 		trajectory_.RecordPoint(player_->GetWorldTransform().translation_);
 
 		// ヒットエフェクトの更新
@@ -407,6 +501,9 @@ void GameScene::Update() {
 
 		// すべての当たり判定
 		CheckAllCollisions();
+
+		// 最後の敵を倒したフレームで壁を消す
+		OpenGoalGate();
 
 		if (hasGoal_ && goalGateOpen_) {
 			const Vector3 playerPosition = player_->GetWorldPosition();
@@ -450,12 +547,37 @@ void GameScene::Update() {
 		break;
 	}
 
-	if (Input::GetInstance()->TriggerKey(DIK_R)) {
-		reloadRequested_ = true;
-	}
-
 	DrawFieldEditor();
 
+}
+
+void GameScene::RegisterEnemyDefeated() {
+	// 的を壊したときの加点
+	score_ += 1000;
+
+	// 破壊SE
+	GameAudio::GetInstance().PlayBreak();
+}
+
+void GameScene::RecordClearStats() {
+	if (player_ == nullptr) {
+		return;
+	}
+
+	const Vector3 current = player_->GetWorldTransform().translation_;
+
+	const float dx = current.x - previousClearPosition_.x;
+	const float dy = current.y - previousClearPosition_.y;
+
+	totalMoveDistance_ += std::sqrt(dx * dx + dy * dy);
+	previousClearPosition_ = current;
+
+	if (player_->ConsumeWallHit()) {
+		++wallHitCount_;
+
+		// 既存のゲーム中スコアの減点
+		score_ = score_ >= 100 ? score_ - 100 : 0;
+	}
 }
 
 void GameScene::DrawFieldEditor() {
@@ -579,12 +701,14 @@ void GameScene::DrawFieldEditor() {
 				goalCount += type == MapChipType::kGoal ? 1u : 0u;
 			}
 		}
+
 		if (playerCount != 1 || goalCount != 1) {
 			fieldEditorMessage_ = "Field needs exactly one player and one goal before saving.";
 			ImGui::TextWrapped("%s", fieldEditorMessage_);
 			ImGui::End();
 			return;
 		}
+
 		const std::string path = "Resources/fields/" + stageManager_->GetCurrentStageData().name + ".csv";
 		// ゴール解放中に一時的に消した壁は、保存時には元へ戻して残す。
 		if (goalGateOpen_) {
@@ -592,12 +716,14 @@ void GameScene::DrawFieldEditor() {
 				mapChipField_->SetMapChip(gate.xIndex, gate.yIndex, MapChipType::kGoalWall);
 			}
 		}
+
 		const bool saved = mapChipField_->SaveMapChipCsv(path);
 		if (goalGateOpen_) {
 			for (const MapChipField::IndexSet& gate : goalGateBlocks_) {
 				mapChipField_->SetMapChip(gate.xIndex, gate.yIndex, MapChipType::kBlank);
 			}
 		}
+
 		if (saved) {
 			reloadRequested_ = true;
 			fieldEditorMessage_ = "Saved. Reloading field...";
@@ -614,6 +740,76 @@ void GameScene::StartHitStop(const Vector3& focusPosition) {
 	isHitStoped_ = true;
 	hitStopTimer_ = 0;
 	cameraController_.SetHitStopFocus(focusPosition, true);
+}
+
+void GameScene::DrawMapBlocks() {
+	for (std::size_t y = 0; y < worldTransformBlocks_.size(); ++y) {
+		const auto& line = worldTransformBlocks_[y];
+
+		for (std::size_t x = 0; x < line.size(); ++x) {
+			WorldTransform* block = line[x];
+
+			// 壁が消えた場所などは描画しない
+			if (block == nullptr) {
+				continue;
+			}
+
+			const MapChipType type = mapChipField_->GetMapChipTypeByIndex(static_cast<uint32_t>(x), static_cast<uint32_t>(y));
+
+			Model* model = nullptr;
+
+			switch (type) {
+			case MapChipType::kBlock:
+				model = modelBlock_;
+				break;
+
+			case MapChipType::kGoalWall:
+				model = modelGoalWall_;
+				break;
+
+			default:
+				break;
+			}
+
+			if (model != nullptr) {
+				model->Draw(*block, cameraController_.GetCamera());
+			}
+		}
+	}
+}
+
+void GameScene::DrawDashSpace() {
+	if (player_ == nullptr || spriteDashSpace_ == nullptr) {
+		return;
+	}
+
+	// 通常プレイと開始フェード中だけ表示
+	if (phase_ != Phase::kPlay && phase_ != Phase::kFadeIn) {
+		return;
+	}
+
+	// ダッシュ中と死亡中は表示しない
+	if (player_->IsDashing() || player_->IsDead()) {
+		return;
+	}
+
+	// プレイヤーより少し上の位置
+	Vector3 position = player_->GetWorldPosition();
+	position.y += 1.4f;
+
+	Vector2 screenPosition{};
+
+	if (!TryWorldToUi(position, cameraController_.GetCamera(), screenPosition)) {
+		return;
+	}
+
+	constexpr float kWidth = 96.0f;
+	constexpr float kHeight = 38.4f;
+
+	// 画像の下辺中央が、変換した位置に来るよう配置
+	spriteDashSpace_->SetPosition({screenPosition.x - kWidth * 0.5f, screenPosition.y - kHeight});
+
+	spriteDashSpace_->Draw();
 }
 
 void GameScene::Draw() {
@@ -642,13 +838,7 @@ void GameScene::Draw() {
 		}
 
 		// ブロックの描画
-		for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTransformBlocks_) {
-			for (WorldTransform* worldTransformBlock : worldTransformBlockLine) {
-				if (!worldTransformBlock)
-					continue;
-				modelBlock_->Draw(*worldTransformBlock, cameraController_.GetCamera());
-			}
-		}
+		DrawMapBlocks();
 		break;
 
 	case Phase::kPlay:
@@ -671,13 +861,7 @@ void GameScene::Draw() {
 		}
 
 		// ブロックの描画
-		for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTransformBlocks_) {
-			for (WorldTransform* worldTransformBlock : worldTransformBlockLine) {
-				if (!worldTransformBlock)
-					continue;
-				modelBlock_->Draw(*worldTransformBlock, cameraController_.GetCamera());
-			}
-		}
+		DrawMapBlocks();
 
 		break;
 
@@ -702,13 +886,7 @@ void GameScene::Draw() {
 		}
 
 		// ブロックの描画
-		for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTransformBlocks_) {
-			for (WorldTransform* worldTransformBlock : worldTransformBlockLine) {
-				if (!worldTransformBlock)
-					continue;
-				modelBlock_->Draw(*worldTransformBlock, cameraController_.GetCamera());
-			}
-		}
+		DrawMapBlocks();
 
 		break;
 
@@ -729,13 +907,7 @@ void GameScene::Draw() {
 		}
 
 		// ブロックの描画
-		for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTransformBlocks_) {
-			for (WorldTransform* worldTransformBlock : worldTransformBlockLine) {
-				if (!worldTransformBlock)
-					continue;
-				modelBlock_->Draw(*worldTransformBlock, cameraController_.GetCamera());
-			}
-		}
+		DrawMapBlocks();
 
 		break;
 	}
@@ -763,20 +935,32 @@ void GameScene::Draw() {
 		deathParticles_->Draw(cameraController_.GetCamera());
 	}
 
+	// 既存の3D描画終了
 	Model::PostDraw();
 
-	// フェードの描画
-	fade_->Draw();
+	// プレイヤー頭上の操作UI
+	Sprite::PreDraw();
+
+	DrawDashSpace();
+
+	Sprite::PostDraw();
+
+	// UIも含めてフェード
+	if (fade_ != nullptr) {
+		fade_->Draw();
+	}
 }
 
 GameScene::~GameScene() { 
 	delete modelBlock_;
+	delete modelGoalWall_;
 	delete modelBubble_;
 	delete debugCamera_;
 	delete modelSkydome_;
 	delete mapChipField_;
 	delete deathParticles_;
 	delete modelShieldEnemy_;
+	delete spriteDashSpace_;
 
 	for (WalkEnemy* enemy : enemies_) {
 		delete enemy;

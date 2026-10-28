@@ -76,6 +76,9 @@ public:
 	// デスフラグのゲッター
 	bool IsDead() const { return isDead_; }
 
+	// 死亡演出が始まる前でも、倒されたと判定する
+	bool IsDefeated() const { return isDead_ || behavior_ == Behavior::kDeath || behaviorRequest_ == Behavior::kDeath; }
+
 	enum class Behavior {
 		kWalk,         // 歩行
 		kDash,         // 突進

@@ -1,25 +1,24 @@
 #pragma once
-#include <cstdint>
-#include <vector>
 #include <KamataEngine.h>
+#include <cstdint>
 #include <math/Vector3.h>
+#include <string>
+#include <vector>
 
-enum class MapChipType { 
-	kBlank,  // 空白
-	kBlock,  // ブロック
+enum class MapChipType {
+	kBlank,    // 空白
+	kBlock,    // ブロック
 	kGoalWall, // 敵全滅で開くゴール前の壁
-	kPlayer, // プレイヤー
-	kEnemy,  // 敵
-	kGoal,   // ゴール
+	kPlayer,   // プレイヤー
+	kEnemy,    // 敵
+	kGoal,     // ゴール
 };
 
-inline bool IsSolidMapChipType(MapChipType type) {
-	return type == MapChipType::kBlock || type == MapChipType::kGoalWall;
-}
+inline bool IsSolidMapChipType(MapChipType type) { return type == MapChipType::kBlock || type == MapChipType::kGoalWall; }
 
 struct MapChipDataUnit {
-	MapChipType type;  // マップチップの種類
-	uint8_t subID;     // サブID
+	MapChipType type = MapChipType::kBlank; // マップチップの種類
+	uint8_t subID = 0;                      // サブID
 };
 
 struct MapChipData {
@@ -27,14 +26,12 @@ struct MapChipData {
 };
 
 enum MapChipCharIndex {
-	kChipType = 0,   // マップチップタイプ
-	kChipSubID = 1,  // タイプごとのサブID
+	kChipType = 0,  // マップチップタイプ
+	kChipSubID = 1, // タイプごとのサブID
 };
 
-class MapChipField
-{
+class MapChipField {
 public:
-
 	void ResetMapChipData();
 
 	void LoadMapChipCsv(const std::string& filePath);
@@ -46,8 +43,8 @@ public:
 
 	KamataEngine::Vector3 GetMapChipPositionByIndex(uint32_t xIndex, uint32_t yIndex);
 
-	uint32_t GetNumBlockVirtical() const { return kNumBlockVirtical; }
-	uint32_t GetNumBlockHorizontal() const { return kNumBlockHorizontal; }
+	uint32_t GetNumBlockVirtical() const { return numBlockVirtical_; }
+	uint32_t GetNumBlockHorizontal() const { return numBlockHorizontal_; }
 
 	struct IndexSet {
 		uint32_t xIndex;
@@ -57,10 +54,10 @@ public:
 	IndexSet GetMapChipIndexSetByPosition(const KamataEngine::Vector3& position);
 
 	struct Rect {
-		float left;      // 左端
-		float right;     // 右端
-		float bottom;    // 下端
-		float top;	     // 上端
+		float left;   // 左端
+		float right;  // 右端
+		float bottom; // 下端
+		float top;    // 上端
 	};
 
 	Rect GetRectByIndex(uint32_t xIndex, uint32_t yIndex);
@@ -71,8 +68,8 @@ private:
 	static inline const float kBlockWidth = 1.0f;
 	static inline const float kBlockHeight = 1.0f;
 
-	static inline const uint32_t kNumBlockVirtical = 20;
-	static inline const uint32_t kNumBlockHorizontal = 100;
+	uint32_t numBlockVirtical_ = 0;
+	uint32_t numBlockHorizontal_ = 0;
 
 	MapChipData mapChipData_;
 };

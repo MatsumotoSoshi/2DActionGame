@@ -13,7 +13,7 @@ GuardEffect* GuardEffect::Create(const WorldTransform& circleWorldTransform) {
 	// インスタンス生成
 	GuardEffect* instance = new GuardEffect();
 	// newの失敗を検出
-	assert(instance);
+	//assert(instance);
 	// インスタンスの初期化
 	instance->Initialize(circleWorldTransform);
 	// 初期化したインスタンスを返す

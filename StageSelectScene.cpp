@@ -1,65 +1,109 @@
-
 #define NOMINMAX
-
 #include "StageSelectScene.h"
 #include <algorithm>
 #include <cassert>
-
+#include "GameAudio.h"
 using namespace KamataEngine;
 
 void StageSelectScene::Initialize(StageManager* stageManager) {
 	assert(stageManager != nullptr);
-	stageManager_ = stageManager;
 
-	const int32_t stageCount = stageManager_->GetStageCount();
-
-	selectedStageIndex_ = stageManager_->GetCurrentStageIndex();
-
-	if (stageCount > 0) {
-		selectedStageIndex_ = std::clamp(selectedStageIndex_, 0, stageCount - 1);
-	} else {
-		selectedStageIndex_ = 0;
+	// 再初期化前に以前のスプライトを解放
+	for (Sprite*& sprite : stageSprites_) {
+		delete sprite;
+		sprite = nullptr;
 	}
 
-	selectorFrameX_ = (selectedStageIndex_ - 2) * kCardSpacing;
+	for (Sprite*& sprite : selectedStageSprites_) {
+		delete sprite;
+		sprite = nullptr;
+	}
 
-	// モデル生成
-	modelStage1_ = Model::CreateFromOBJ("block");
-	modelStage2_ = Model::CreateFromOBJ("block");
-	modelStage3_ = Model::CreateFromOBJ("block");
-	modelStage4_ = Model::CreateFromOBJ("block");
-	modelStage5_ = Model::CreateFromOBJ("block");
+	delete fade_;
+	fade_ = nullptr;
 
-	// ワールド変換初期化
-	worldTransformStage1_.Initialize();
-	worldTransformStage2_.Initialize();
-	worldTransformStage3_.Initialize();
-	worldTransformStage4_.Initialize();
-	worldTransformStage5_.Initialize();
+	stageManager_ = stageManager;
+	selectedStageIndex_ = 0;
+	selectableStageCount_ = 0;
 
-	// モデル配置
-	worldTransformStage1_.translation_ = {-20.0f, 0.0f, 0.0f};
-	worldTransformStage2_.translation_ = {-10.0f, 0.0f, 0.0f};
-	worldTransformStage3_.translation_ = {0.0f, 0.0f, 0.0f};
-	worldTransformStage4_.translation_ = {10.0f, 0.0f, 0.0f};
-	worldTransformStage5_.translation_ = {20.0f, 0.0f, 0.0f};
+	phase_ = Phase::kFadeIn;
+	isFinished_ = false;
 
-	worldMatrix1_.Update(worldTransformStage1_);
-	worldMatrix2_.Update(worldTransformStage2_);
-	worldMatrix3_.Update(worldTransformStage3_);
-	worldMatrix4_.Update(worldTransformStage4_);
-	worldMatrix5_.Update(worldTransformStage5_);
+	if (stageManager_ == nullptr) {
+		return;
+	}
 
+	selectableStageCount_ = std::clamp(stageManager_->GetStageCount(), 0, static_cast<int32_t>(kSpriteCount));
 
+	if (selectableStageCount_ > 0) {
+		selectedStageIndex_ = std::clamp(stageManager_->GetCurrentStageIndex(), 0, selectableStageCount_ - 1);
+	}
+
+	const std::array<const char*, kSpriteCount> texturePaths = {"stageSelect/stage1.png", "stageSelect/stage2.png", "stageSelect/stage3.png", "stageSelect/stage4.png", "stageSelect/stage5.png"};
+
+	const std::array<const char*, kSpriteCount> selectedTexturePaths = {
+	    "stageSelect/stage1Selected.png", "stageSelect/stage2Selected.png", "stageSelect/stage3Selected.png", "stageSelect/stage4Selected.png", "stageSelect/stage5Selected.png"};
+
+	const float firstCenterX = kScreenCenterX - static_cast<float>(selectableStageCount_ > 0 ? selectableStageCount_ - 1 : 0) * kCardSpacing * 0.5f;
+
+	for (int32_t i = 0; i < selectableStageCount_; ++i) {
+		const std::size_t index = static_cast<std::size_t>(i);
+
+		const float centerX = firstCenterX + static_cast<float>(i) * kCardSpacing;
+
+		const Vector2 position = {centerX - kCardWidth * 0.5f, kCardY};
+
+		// 通常画像
+		stageSprites_[index] = Sprite::Create(TextureManager::Load(texturePaths[index]), position);
+
+		stageSprites_[index]->SetSize({kCardWidth, kCardHeight});
+
+		// 選択中の画像も同じ位置・サイズで用意
+		selectedStageSprites_[index] = Sprite::Create(TextureManager::Load(selectedTexturePaths[index]), position);
+
+		selectedStageSprites_[index]->SetSize({kCardWidth, kCardHeight});
+	}
+
+	// 背景用のカメラ
 	camera_.Initialize();
-	PrimitiveDrawer::GetInstance()->SetCamera(&camera_);
+	camera_.farZ = 5000.0f;
+	camera_.UpdateMatrix();
+
+	modelSkydome_ = Model::CreateFromOBJ("SkyDome");
+
+	skydome_.Initialize(modelSkydome_, &camera_);
+	skydome_.Update();
 
 	fade_ = new Fade();
 	fade_->Initialize();
 	fade_->Start(Fade::Status::FadeIn, fadeDuration_);
 
-	phase_ = Phase::kFadeIn;
-	isFinished_ = false;
+	// 再初期化時は以前の操作UIを解放
+	delete spriteKeyA_;
+	spriteKeyA_ = nullptr;
+
+	delete spriteKeyD_;
+	spriteKeyD_ = nullptr;
+
+	delete spriteKeySpace_;
+	spriteKeySpace_ = nullptr;
+
+	// Aキー
+	spriteKeyA_ = Sprite::Create(TextureManager::Load("ui/keys/keyA.png"), {440.0f, 580.0f});
+
+	spriteKeyA_->SetSize({64.0f, 64.0f});
+
+	// Dキー
+	spriteKeyD_ = Sprite::Create(TextureManager::Load("ui/keys/keyD.png"), {520.0f, 580.0f});
+
+	spriteKeyD_->SetSize({64.0f, 64.0f});
+
+	// SPACEキー
+	spriteKeySpace_ = Sprite::Create(TextureManager::Load("ui/keys/keySPACE.png"), {680.0f, 580.0f});
+
+	spriteKeySpace_->SetSize({160.0f, 64.0f});
+
+	GameAudio::GetInstance().PlayBgm(GameAudio::Bgm::kStageSelect);
 }
 
 void StageSelectScene::Update() {
@@ -77,19 +121,30 @@ void StageSelectScene::Update() {
 		break;
 
 	case Phase::kMain:
+		if (selectableStageCount_ <= 0) {
+			break;
+		}
+
+		// Aキー：左へ
 		if (Input::GetInstance()->TriggerKey(DIK_A)) {
 			selectedStageIndex_ = std::max(0, selectedStageIndex_ - 1);
 		}
 
+		// Dキー：右へ
 		if (Input::GetInstance()->TriggerKey(DIK_D)) {
-			selectedStageIndex_ = std::min(stageManager_->GetStageCount() - 1, selectedStageIndex_ + 1);
+			selectedStageIndex_ = std::min(selectableStageCount_ - 1, selectedStageIndex_ + 1);
 		}
 
+		// Spaceキー：決定
 		if (Input::GetInstance()->TriggerKey(DIK_SPACE)) {
+			GameAudio::GetInstance().PlayConfirm();
+
 			stageManager_->SetCurrentStageIndex(selectedStageIndex_);
+
 			fade_->Start(Fade::Status::FadeOut, fadeDuration_);
 			phase_ = Phase::kFadeOut;
 		}
+
 		break;
 
 	case Phase::kFadeOut:
@@ -101,78 +156,77 @@ void StageSelectScene::Update() {
 		break;
 	}
 
-	worldMatrix1_.Update(worldTransformStage1_);
-	worldMatrix2_.Update(worldTransformStage2_);
-	worldMatrix3_.Update(worldTransformStage3_);
-	worldMatrix4_.Update(worldTransformStage4_);
-	worldMatrix5_.Update(worldTransformStage5_);
-
+	skydome_.Update();
 }
 
 void StageSelectScene::DrawStageSelector() {
-	// ステージモデル描画
-	if (modelStage1_) {
-		modelStage1_->Draw(worldTransformStage1_, camera_);
+	for (int32_t i = 0; i < selectableStageCount_; ++i) {
+		const std::size_t index = static_cast<std::size_t>(i);
+
+		Sprite* sprite = nullptr;
+
+		if (i == selectedStageIndex_) {
+			sprite = selectedStageSprites_[index];
+		} else {
+			sprite = stageSprites_[index];
+		}
+
+		if (sprite != nullptr) {
+			sprite->Draw();
+		}
 	}
-
-	if (modelStage2_) {
-		modelStage2_->Draw(worldTransformStage2_, camera_);
-	}
-
-	if (modelStage3_) {
-		modelStage3_->Draw(worldTransformStage3_, camera_);
-	}
-
-	if (modelStage4_) {
-		modelStage4_->Draw(worldTransformStage4_, camera_);
-	}
-
-	if (modelStage5_) {
-		modelStage5_->Draw(worldTransformStage5_, camera_);
-	}
-
-	// 選択枠を滑らかに移動
-	const float targetX = (selectedStageIndex_ - 2) * kCardSpacing;
-	selectorFrameX_ += (targetX - selectorFrameX_) * 0.22f;
-
-	// 選択枠の頂点
-	constexpr float kFrameHalfWidth = 5.0f;
-	constexpr float kFrameHalfHeight = 3.5f;
-	constexpr float kFrameZ = -0.1f;
-
-	const Vector4 selectorColor = {1.0f, 0.95f, 0.45f, 1.0f};
-
-	const Vector3 corners[] = {
-	    {selectorFrameX_ - kFrameHalfWidth, kCardCenterY - kFrameHalfHeight, kFrameZ},
-	    {selectorFrameX_ + kFrameHalfWidth, kCardCenterY - kFrameHalfHeight, kFrameZ},
-	    {selectorFrameX_ + kFrameHalfWidth, kCardCenterY + kFrameHalfHeight, kFrameZ},
-	    {selectorFrameX_ - kFrameHalfWidth, kCardCenterY + kFrameHalfHeight, kFrameZ}
-    };
-
-	// corners と selectorColor を使った選択枠の線描画は、
-	// 現在の PrimitiveDrawer のAPIに合わせて実装する。
 }
 
 void StageSelectScene::Draw() {
 	PrimitiveDrawer::GetInstance()->Reset();
 
-	Model::PreDraw();
+	Model::PreDraw(Model::CullingMode::kBack, Model::BlendMode::kNone, Model::DepthTestMode::kReadOnly);
 
-	DrawStageSelector();
+	skydome_.Draw();
 
 	Model::PostDraw();
 
+	Sprite::PreDraw();
+
+	// ステージ選択画像
+	DrawStageSelector();
+
+	// 操作UI
+	if (spriteKeyA_ != nullptr) {
+		spriteKeyA_->Draw();
+	}
+
+	if (spriteKeyD_ != nullptr) {
+		spriteKeyD_->Draw();
+	}
+
+	if (spriteKeySpace_ != nullptr) {
+		spriteKeySpace_->Draw();
+	}
+
+	Sprite::PostDraw();
+
+	// UIも含めてフェード
 	if (fade_ != nullptr) {
 		fade_->Draw();
 	}
 }
 
 StageSelectScene::~StageSelectScene() {
-	delete modelStage1_;
-	delete modelStage2_;
-	delete modelStage3_;
-	delete modelStage4_;
-	delete modelStage5_;
+	for (Sprite*& sprite : stageSprites_) {
+		delete sprite;
+		sprite = nullptr;
+	}
+
+	for (Sprite*& sprite : selectedStageSprites_) {
+		delete sprite;
+		sprite = nullptr;
+	}
+
+	delete spriteKeyA_;
+	delete spriteKeyD_;
+	delete spriteKeySpace_;
 
 	delete fade_;
+	fade_ = nullptr;
 }

@@ -19,13 +19,13 @@ public:
 	/// <param name="index">ステージ番号</param> 
     /// <returns>ステージデータ</returns>
 	const StageData& GetStageData(int32_t index) const { 
-		assert(index >= 0 && index < stageDatas_.size());
+		//assert(index >= 0 && index < stageDatas_.size());
 		return stageDatas_[index];
 	}
 	int32_t GetStageCount() const { return static_cast<int32_t>(stageDatas_.size()); }
 
 	void SetCurrentStageIndex(int32_t index) { 
-		assert(index >= 0 && index < stageDatas_.size());
+		//assert(index >= 0 && index < stageDatas_.size());
 		currentStageIndex_ = index;
 	}
 

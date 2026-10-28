@@ -14,12 +14,12 @@ public:
 	/// <summary>
 	/// 初期化
 	/// </summary>
-	void Initialize(KamataEngine::Model* model, KamataEngine::Model* bubbleModel, KamataEngine::Camera * camera, const KamataEngine::Vector3& position);
+	void Initialize(KamataEngine::Model* model, KamataEngine::Model* bubbleModel, const KamataEngine::Vector3& position);
 
 	/// <summary>
 	/// 移動
 	/// </summary>
-	void Move();
+	void Move(float rotationSpeed);
 
 	/// <summary>
 	/// 更新
@@ -35,11 +35,14 @@ public:
 
 
 	KamataEngine::Vector3 velocity_ = {};
-	static inline const float kAimRotationSpeed = 5.0f;
-	static inline const float kDashInitialSpeed = 0.05f;
+	// ダッシュ前の方向決めの回転速度
+	static inline const float kAimRotationSpeed = 3.0f;
+	// ダッシュ中の回転速度
+	static inline const float kDashRotationSpeed = 7.0f;
+	static inline const float kDashInitialSpeed = 0.005f;
 	static inline const float kDashAcceleration = 0.0018f;
 	static inline const float kGearAccelerationBonus = 0.0008f;
-	static inline const float kDashMaxSpeed = 0.25f;
+	static inline const float kDashMaxSpeed = 0.15f;
 	static inline const uint32_t kMaxGearLevel = 5;
 	static inline const float kAimPreviewDistance = 15.0f;
 	float aimAngle_ = 0.0f;
@@ -60,6 +63,7 @@ public:
 	//キャラクターの当たり判定サイズ
 	static inline const float kWidth = 0.8f;
 	static inline const float kHeight = 0.8f;
+
 
 	struct CollisionMapInfo {
 		bool hitTop_ = false;        // 上側ブロックとの衝突
@@ -90,6 +94,13 @@ public:
 	static inline const float kWidthHalf = kWidth / 2.0f;
 	static inline const float kHeightHalf = kHeight / 2.0f;
 	static inline const float kBlank = 0.001f;
+
+	// 壁判定だけ、上下左右に0.04ずつ広げる
+	static constexpr float kWallCollisionMargin = 0.04f;
+
+	static inline const float kWallWidthHalf = kWidthHalf + kWallCollisionMargin;
+
+	static inline const float kWallHeightHalf = kHeightHalf + kWallCollisionMargin;
 
 	// 判定結果を反映して移動させる
 	void MoveResult(const CollisionMapInfo& collisionMapInfo);

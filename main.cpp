@@ -8,6 +8,8 @@
 #include <string>
 #include <vector>
 #include "StageSelectScene.h"
+#include <exception>
+#include "GameAudio.h"
 using namespace KamataEngine;
 
 // シーン(型)
@@ -78,6 +80,10 @@ void ChangeScene() {
 		if (gameScene->IsFinished()) {
 			const bool cleared = gameScene->IsCleared();
 
+			const uint32_t clearWallHits = gameScene->GetWallHitCount();
+
+			const float clearDistance = gameScene->GetTotalMoveDistance();
+
 			std::vector<Vector3> clearPath;
 			if (cleared) {
 				clearPath = gameScene->GetTrajectory().GetPoints();
@@ -89,7 +95,7 @@ void ChangeScene() {
 			if (cleared) {
 				scene = Scene::kClear;
 				clearScene = new ClearScene();
-				clearScene->Initialize(clearPath, stageManager);
+				clearScene->Initialize(clearPath, stageManager, clearWallHits, clearDistance);
 			} else {
 				// ゲーム失敗時はタイトルへ戻る
 				scene = Scene::kTitle;
@@ -109,13 +115,24 @@ void ChangeScene() {
 
 	case Scene::kClear:
 		if (clearScene->IsFinished()) {
+			ClearScene::ReturnTarget target = clearScene->GetReturnTarget();
+
 			delete clearScene;
 			clearScene = nullptr;
 
-			scene = Scene::kTitle;
-			titleScene = new TitleScene();
-			titleScene->Initialize();
+			if (target == ClearScene::ReturnTarget::kTitle) {
+				// タイトルへ戻る
+				scene = Scene::kTitle;
+				titleScene = new TitleScene();
+				titleScene->Initialize();
+			} else {
+				// ステージ選択へ戻る
+				scene = Scene::kStageSelect;
+				stageSelectScene = new StageSelectScene();
+				stageSelectScene->Initialize(stageManager);
+			}
 		}
+
 		break;
 	}
 }
@@ -163,7 +180,7 @@ void DrawScene() {
 // Windowsアプリでのエントリーポイント(main関数)
 int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	// エンジンの初期化
-	Initialize(L"LE2C_26_マツモト_ソウシ_2DActionGame");
+	Initialize(L"LE2C_26_マツモト_ソウシ_イッカく");
 
 	DirectXCommon* dxCommon = DirectXCommon::GetInstance();
 #ifdef USE_IMGUI
@@ -177,6 +194,8 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	stageManager->LoadStageData();
 	// デバッグ設定はステージ一覧の読み込み後に適用する。
 	LoadDebugSettings();
+
+	GameAudio::GetInstance().Initialize();
 
 	// ステージ選択画面から開始
 	scene = Scene::kTitle;
@@ -193,8 +212,19 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 		imguiManager->Begin();
 #endif
 
-		// シーン切り替え		
-		ChangeScene();
+		// シーン切り替え
+		try {
+			ChangeScene();
+		} catch (const std::exception& error) {
+#ifdef USE_IMGUI
+			imguiManager->End();
+#endif
+
+			MessageBoxA(nullptr, error.what(), "Stage load error", MB_OK | MB_ICONERROR);
+
+			// 読み込みに失敗したシーンを更新せず、終了処理へ進む
+			break;
+		}
 
 		// 現在シーン更新
 		UpdateScene();
@@ -227,6 +257,9 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	// nullptrの代入
 	titleScene = nullptr;
 	gameScene = nullptr;
+
+	// BGMを停止
+	GameAudio::GetInstance().StopBgm();
 
 	// エンジンの終了処理
 	Finalize();
